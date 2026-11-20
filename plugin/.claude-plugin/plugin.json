@@ -1,0 +1,5 @@
+{
+  "name": "claude-dash",
+  "version": "0.1.0",
+  "description": "Forwards Claude Code hook events to the claude-dash dashboard on localhost"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "claude-dash",
+  "version": "0.1.0",
+  "description": "Live dashboard for Claude Code sessions, fed by hooks",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "headless": "node src/headless.js",
+    "mock": "node scripts/mock.js",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
