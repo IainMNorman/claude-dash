@@ -290,4 +290,6 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .ctxmenu{position:fixed;right:auto;width:max-content;z-index:50;min-width:200px;padding:6px 0;display:block}
 .ctxmenu .dditem{padding:6px 14px;gap:10px}
 .ctxmenu .ico{width:15px;height:15px;color:var(--mut)}
-.meta .path{cursor:context-menu}
+
+.act:empty{display:none}
+.act.quiet .ico{width:13px;height:13px;margin-right:6px}

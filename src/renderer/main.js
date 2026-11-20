@@ -183,10 +183,11 @@ function card(s, now) {
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${(() => {
-        if (s.displayState !== 'working' && s.displayState !== 'waiting') return '';
+        if (s.displayState === 'ended') return '';
         const n = active.length;
-        const text = s.activity || (n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : '');
-        return text ? `<div class="act"><span class="adot"></span>${esc(text)}</div>` : '';
+        const live = s.displayState === 'working' || s.displayState === 'waiting';
+        const text = (live && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : `Last event ${dur(now - s.lastEvent)} ago`);
+        return `<div class="act${live && (s.activity || n) ? '' : ' quiet'}">${live && (s.activity || n) ? '<span class="adot"></span>' : icon('clock')}${esc(text)}</div>`;
       })()}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
       ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
