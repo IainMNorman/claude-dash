@@ -55,13 +55,19 @@ export function columnAt(rects, x) {
   return best;
 }
 
-export function chooseColumns({ nMin, nMax, total, H, w, memo, now, dwellMs = 3000, slack = 0.7 }) {
+export function effectiveColumnBounds({ nMin, nMax, count }) {
+  const hi = Math.max(1, Math.min(nMax, count == null ? nMax : count));
+  return { nMin: Math.min(nMin, hi), nMax: hi };
+}
+
+export function chooseColumns({ nMin, nMax, total, H, w, memo, now, count, dwellMs = 3000, slack = 0.7, growMargin = 1.25 }) {
+  ({ nMin, nMax } = effectiveColumnBounds({ nMin, nMax, count }));
   let n = nMax;
   for (let k = nMin; k <= nMax; k++) if (total <= k * H) { n = k; break; }
   if (memo && memo.w === w && n !== memo.n && memo.n >= nMin && memo.n <= nMax) {
     const calm = now - memo.t >= dwellMs;
-    const roomy = total <= n * H * slack;
-    if (n < memo.n && !(calm && roomy)) n = memo.n;
+    if (n < memo.n && !(calm && total <= n * H * slack)) n = memo.n;
+    else if (n > memo.n && !calm && total <= memo.n * H * growMargin) n = memo.n;
   }
   const next = memo && memo.w === w && memo.n === n ? memo : { n, w, t: now };
   return { n, memo: next };

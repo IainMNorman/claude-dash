@@ -110,3 +110,49 @@ test('chooseColumns: dwell blocks rapid changes, a width change resets, shrinkin
   r = chooseColumns({ ...base, w: 800, total: 800, memo: r.memo, now: 9600 });
   assert.equal(r.n, 2, 'width change ignores memory');
 });
+
+test('effectiveColumnBounds: each session gets its own column up to nMin, never more columns than sessions', async () => {
+  const { effectiveColumnBounds: b } = await load();
+  assert.deepEqual(b({ nMin: 2, nMax: 3, count: 2 }), { nMin: 2, nMax: 2 });
+  assert.deepEqual(b({ nMin: 2, nMax: 3, count: 1 }), { nMin: 1, nMax: 1 });
+  assert.deepEqual(b({ nMin: 2, nMax: 3, count: 5 }), { nMin: 2, nMax: 3 });
+  assert.deepEqual(b({ nMin: 1, nMax: 4, count: 0 }), { nMin: 1, nMax: 1 });
+  assert.deepEqual(b({ nMin: 2, nMax: 3 }), { nMin: 2, nMax: 3 });
+});
+
+test('chooseColumns with count: 2 sessions at nMin 2 split even when they fit one column', async () => {
+  const { chooseColumns } = await load();
+  assert.equal(chooseColumns({ nMin: 2, nMax: 3, total: 300, H: 800, w: 1400, memo: null, now: 0, count: 2 }).n, 2);
+  assert.equal(chooseColumns({ nMin: 2, nMax: 3, total: 300, H: 800, w: 1400, memo: null, now: 0, count: 1 }).n, 1);
+  assert.equal(chooseColumns({ nMin: 2, nMax: 3, total: 5000, H: 800, w: 1400, memo: null, now: 0, count: 5 }).n, 3);
+  assert.equal(chooseColumns({ nMin: 2, nMax: 3, total: 300, H: 800, w: 1400, memo: null, now: 0, count: 5 }).n, 2);
+});
+
+test('chooseColumns: growth near the threshold does not flip each call; real overflow still grows', async () => {
+  const { chooseColumns } = await load();
+  const base = { nMin: 1, nMax: 3, H: 500, w: 1200, count: 6 };
+  let r = chooseColumns({ ...base, total: 400, memo: null, now: 0 });
+  const seen = [];
+  for (let i = 1; i <= 6; i++) {
+    r = chooseColumns({ ...base, total: i % 2 ? 520 : 480, memo: r.memo, now: i * 100 });
+    seen.push(r.n);
+  }
+  assert.deepEqual(seen, [1, 1, 1, 1, 1, 1], 'slightly over H inside dwell stays put');
+  r = chooseColumns({ ...base, total: 520, memo: r.memo, now: 5000 });
+  assert.equal(r.n, 2, 'grows once calm');
+  r = chooseColumns({ ...base, total: 480, memo: r.memo, now: 5100 });
+  assert.equal(r.n, 2, 'no flip back');
+  r = chooseColumns({ ...base, total: 1400, memo: r.memo, now: 5200 });
+  assert.equal(r.n, 3, 'large overflow grows immediately');
+});
+
+test('chooseColumns: shrink dwell still works with count', async () => {
+  const { chooseColumns } = await load();
+  const base = { nMin: 1, nMax: 3, H: 500, w: 1200, count: 4 };
+  let r = chooseColumns({ ...base, total: 800, memo: null, now: 0 });
+  assert.equal(r.n, 2);
+  r = chooseColumns({ ...base, total: 100, memo: r.memo, now: 500 });
+  assert.equal(r.n, 2);
+  r = chooseColumns({ ...base, total: 100, memo: r.memo, now: 4000 });
+  assert.equal(r.n, 1);
+});

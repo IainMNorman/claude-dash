@@ -56,7 +56,18 @@ function updateTray() {
   }
 }
 
+function buildAppMenu() {
+  const template = [
+    { role: 'appMenu' },
+    { role: 'editMenu' },
+    { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { type: 'separator' }, { role: 'toggleDevTools' }] },
+    { role: 'windowMenu' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(async () => {
+  buildAppMenu();
   let port;
   try { port = await server.listenOn(); } catch (e) { console.error('listen failed', e.message); app.quit(); return; }
   createWindow(port);

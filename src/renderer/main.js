@@ -1,6 +1,8 @@
 import { createMenu } from './menu.js';
 import { icon, STATE_ICON } from './icons.js';
 import { neededColumns, foldCols, placeUnplaced, orderFor, dropIndex, columnAt, chooseColumns } from './arrange.js';
+import { initKeys } from './keys.js';
+import { dur, since, timeText, timeTitle, diffKeyed, feedKeys, colsSig } from './patch.js';
 
 if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron');
 
@@ -28,12 +30,7 @@ const store = {
   },
 };
 
-function dur(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
-  return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
-}
+const tspan = (ms) => `<span data-t="${since(ms)}"></span>`;
 function num(n) {
   if (n < 1000) return String(n);
   if (n < 1e6) return (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + 'k';
@@ -43,6 +40,7 @@ function num(n) {
 let sortBy = store.get('dash.sort', 'status');
 let filterBy = store.get('dash.filter', 'live');
 let query = '';
+let kbId = null;
 const openFinished = new Set();
 
 const sorters = {
@@ -73,18 +71,18 @@ function visible() {
   if (sortBy === 'manual') return list;
   const fn = sorters[sortBy];
   if (fn) list = [...list].sort(fn);
-  return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const needs = (s) => s.displayState === 'waiting' || (s.children || []).some((c) => c.status === 'waiting');
+  return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || Number(needs(b)) - Number(needs(a)));
 }
 
-function childRow(c, now) {
-  const end = c.endedAt || now;
+function childRow(c) {
   const shell = c.kind === 'shell';
   const label = c.status === 'waiting' ? 'needs you' : c.status;
   const showType = !shell && c.type && c.type !== 'general-purpose';
   const title = icon(shell ? 'terminal' : 'bot') + (shell ? `<span class="sh">${esc(c.desc || 'shell')}</span>` : esc(c.desc || (showType ? c.type : 'subagent')));
   const badge = (showType && c.desc ? ` <span class="ctype">${esc(c.type)}</span>` : shell ? ' <span class="ctype">shell</span>' : '') + (shell ? '' : modelTag(c.model));
   return `<div class="child ${c.status} ${shell ? 'shell' : ''}">
-    <div class="ctop"><span class="ct">${title}${badge}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
+    <div class="ctop"><span class="ct">${title}${badge}</span><span class="cb">${label} · ${c.endedAt ? dur(c.endedAt - c.startedAt) : tspan(c.startedAt)}</span></div>
     ${c.status === 'waiting' ? `<div class="cmsg">${esc(c.message || 'Needs your input')}</div>` : ''}
     ${c.status === 'running' ? `<div class="act sm"><span class="adot"></span>${esc(c.activity || 'Working…')}</div>` : ''}
   </div>`;
@@ -127,7 +125,7 @@ function tokenBlock(tk, c) {
   </div>`;
 }
 
-function shellGroup(id, shells, now) {
+function shellGroup(id, shells) {
   const groups = new Map();
   for (const c of shells) {
     const k = c.desc || 'shell';
@@ -138,9 +136,9 @@ function shellGroup(id, shells, now) {
   }
   const rows = [...groups.values()].sort((a, b) => a.oldest - b.oldest);
   const oldest = Math.min(...shells.map((c) => c.startedAt));
-  return `<details class="shells" data-id="${esc(id)}" data-kind="shells"${openFinished.has(id + ':shells') ? ' open' : ''}>
-    <summary>${shells.length} background shell${shells.length > 1 ? 's' : ''} running · oldest ${dur(now - oldest)}</summary>
-    <div class="kids">${rows.map((g) => `<div class="child shell"><div class="ctop"><span class="ct"><span class="sh">$ ${esc(g.desc)}</span>${g.n > 1 ? ` <span class="mut">×${g.n}</span>` : ''}</span><span class="cb">running · ${dur(now - g.oldest)}</span></div></div>`).join('')}</div>
+  return `<details class="shells" data-id="${esc(id)}" data-kind="shells">
+    <summary>${shells.length} background shell${shells.length > 1 ? 's' : ''} running · oldest ${tspan(oldest)}</summary>
+    <div class="kids">${rows.map((g) => `<div class="child shell"><div class="ctop"><span class="ct"><span class="sh">$ ${esc(g.desc)}</span>${g.n > 1 ? ` <span class="mut">×${g.n}</span>` : ''}</span><span class="cb">running · ${tspan(g.oldest)}</span></div></div>`).join('')}</div>
   </details>`;
 }
 
@@ -167,7 +165,7 @@ const modelName = (m) => {
 const modelTag = (m, effort) => m ? `<span class="ctype model" title="${esc(m)}${effort ? ' · ' + esc(effort) + ' effort' : ''}">${esc(modelName(m))}${effort ? ' · ' + esc(effort) : ''}</span>` : '';
 const shortPath = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 
-function card(s, now) {
+function card(s) {
   const kids = s.children || [];
   const active = kids.filter((c) => c.status !== 'done' && c.kind !== 'shell');
   const shells = kids.filter((c) => c.status !== 'done' && c.kind === 'shell');
@@ -177,10 +175,10 @@ function card(s, now) {
   return `
     <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
       <div class="top">
-        <span class="proj"><span class="sico st-wrap" title="${badge} · ${dur(now - s.stateSince)}">${s.displayState === 'working' ? '<span class="sdot"></span>' : icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}</span>${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
+        <span class="proj"><span class="sico st-wrap" data-tp="${esc(badge)}" data-tt="${since(s.stateSince)}">${s.displayState === 'working' ? '<span class="sdot"></span>' : icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}</span>${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
         <span class="badge">${s.displayState === 'waiting' || s.stuck ? `<span class="need">${badge}</span>` : ''}${modelTag(s.model, s.effort)}</span>
       </div>
-      <div class="meta">${gitLine(s.git) || '<div></div>'}<div class="mut path" title="${esc(s.cwd)}"><span>${esc(shortPath(s.cwd))}</span><span class="nw"> · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</span></div></div>
+      <div class="meta">${gitLine(s.git) || '<div></div>'}<div class="mut path" title="${esc(s.cwd)}"><span>${esc(shortPath(s.cwd))}</span><span class="nw">&nbsp;·&nbsp;${s.toolCount} tools · up ${tspan(s.startedAt)}</span></div></div>
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${(() => {
@@ -188,13 +186,13 @@ function card(s, now) {
         const n = active.length;
         const live = s.displayState === 'working' || s.displayState === 'waiting';
         const delegating = /^(Delegating|Starting background)/.test(s.activity || '');
-        const text = (live && s.activity && !(delegating && n) && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : `Last event ${dur(now - s.lastEvent)} ago`);
-        return `<div class="act${live && (s.activity || n) ? '' : ' quiet'}">${live && (s.activity || n) ? '<span class="adot"></span>' : icon('clock')}${esc(text)}</div>`;
+        const text = (live && s.activity && !(delegating && n) && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : '');
+        return `<div class="act${live && (s.activity || n) ? '' : ' quiet'}">${live && (s.activity || n) ? '<span class="adot"></span>' : icon('clock')}${text ? esc(text) : `Last event ${tspan(s.lastEvent)} ago`}</div>`;
       })()}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
-      ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
-      ${shells.length ? shellGroup(s.id, shells, now) : ''}
-      ${done.length ? `<details class="fin" data-id="${esc(s.id)}"${openFinished.has(s.id) ? ' open' : ''}><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c, now)).join('')}</div></details>` : ''}
+      ${active.length ? `<div class="kids">${active.map((c) => childRow(c)).join('')}</div>` : ''}
+      ${shells.length ? shellGroup(s.id, shells) : ''}
+      ${done.length ? `<details class="fin" data-id="${esc(s.id)}"><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c)).join('')}</div></details>` : ''}
       <div class="acts">
         ${s.link ? `<a href="${esc(s.link)}" data-act="open">${icon('open')}Open</a>` : ''}
         <button data-act="pin" type="button">${icon('pin')}${s.pinned ? 'Unpin' : 'Pin'}</button>
@@ -209,19 +207,106 @@ function render() {
   const by = (st) => all.filter((s) => s.displayState === st).length;
   const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
   const g = snap.global;
-  $('burn').innerHTML = g ? `<b>≈ ${money(g.perHour)}/h</b>` : '';
-  $('burn').title = g ? `API list-price equivalent across all sessions, last 10 min x6. Session totals: ${money(g.usd)}. ${g.active} session${g.active === 1 ? '' : 's'} spending now.` : '';
-  $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
-  document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
+  setHtml($('burn'), g ? `<b>≈ ${money(g.perHour)}/h</b>` : '');
+  const burnTip = g ? `API list-price equivalent across all sessions, last 10 min x6. Session totals: ${money(g.usd)}. ${g.active} session${g.active === 1 ? '' : 's'} spending now.` : '';
+  if ($('burn').title !== burnTip) $('burn').title = burnTip;
+  setHtml($('stats'), `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`);
+  const docTitle = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
+  if (document.title !== docTitle) document.title = docTitle;
   filterMenu.refresh();
   sortMenu.refresh();
   colsMenu.refresh();
   $('colsDd').hidden = sortBy !== 'manual';
   const list = visible();
   drawCards(list, now, 0);
-  $('feed').innerHTML = snap.feed.map((f) => `
-    <div class="row${f.child ? ' kid' : ''}"><span class="mut">${icon(FEED_ICON[f.event] || 'wrench')}${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
-    <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' || (f.event === 'SessionEnd' && f.text) ? (f.event === 'SessionEnd' ? 'Session ' + f.text : f.text) : (FEED_TEXT[f.event] || f.event) + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
+  $('cards').querySelectorAll('.card').forEach((c) => { c.draggable = sortBy === 'manual'; c.classList.toggle('kbsel', c.dataset.id === kbId); });
+  drawFeed();
+}
+
+const feedRow = (f) => `<div class="row${f.child ? ' kid' : ''}"><span class="mut">${icon(FEED_ICON[f.event] || 'wrench')}${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
+    <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' || (f.event === 'SessionEnd' && f.text) ? (f.event === 'SessionEnd' ? 'Session ' + f.text : f.text) : (FEED_TEXT[f.event] || f.event) + (f.text ? ' · ' + f.text : ''))}</span></div>`;
+const feedCache = new Map();
+function drawFeed() {
+  const root = $('feed');
+  const rows = feedKeys(snap.feed || [], 50).map(({ key, item }) => ({ key, sig: feedRow(item) }));
+  const d = diffKeyed(new Map([...feedCache].map(([k, v]) => [k, v.sig])), rows);
+  for (const k of d.remove) { feedCache.get(k).el.remove(); feedCache.delete(k); }
+  rows.forEach(({ key, sig }, i) => {
+    let hit = feedCache.get(key);
+    if (!hit || hit.sig !== sig) {
+      const el = fromHtml(sig);
+      if (hit) hit.el.replaceWith(el);
+      feedCache.set(key, hit = { el, sig });
+    }
+    if (root.children[i] !== hit.el) root.insertBefore(hit.el, root.children[i] || null);
+  });
+  while (root.children.length > rows.length) root.lastElementChild.remove();
+}
+
+function setHtml(el, html) {
+  if (el._html !== html) { el.innerHTML = html; el._html = html; }
+}
+function fromHtml(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+const keepAttr = (el, name) => (name === 'open' && el.nodeName === 'DETAILS') || (name === 'title' && el.hasAttribute('data-tt'));
+function morph(live, tpl) {
+  if (live.nodeType !== tpl.nodeType || live.nodeName !== tpl.nodeName) { live.replaceWith(tpl); return; }
+  if (live.nodeType !== 1) { if (live.nodeValue !== tpl.nodeValue) live.nodeValue = tpl.nodeValue; return; }
+  for (const a of [...live.attributes]) if (!tpl.hasAttribute(a.name) && !keepAttr(live, a.name)) live.removeAttribute(a.name);
+  for (const a of tpl.attributes) if (live.getAttribute(a.name) !== a.value) live.setAttribute(a.name, a.value);
+  if (live.hasAttribute('data-t')) return;
+  const lc = [...live.childNodes];
+  const tc = [...tpl.childNodes];
+  if (lc.length !== tc.length) { live.replaceChildren(...tc); return; }
+  for (let i = 0; i < lc.length; i++) morph(lc[i], tc[i]);
+}
+function applyOpen(el) {
+  for (const d of el.querySelectorAll('details.fin, details.shells')) {
+    const open = openFinished.has(d.classList.contains('shells') ? d.dataset.id + ':shells' : d.dataset.id);
+    if (d.open !== open) d.open = open;
+  }
+}
+function fillTimes(root, now) {
+  for (const el of root.querySelectorAll('[data-t^="since:"]')) { const t = timeText(el.dataset.t, now); if (el.textContent !== t) el.textContent = t; }
+  for (const el of root.querySelectorAll('[data-tt]')) { const t = timeTitle(el.dataset.tp, el.dataset.tt, now); if (el.title !== t) el.title = t; }
+}
+
+const cardCache = new Map();
+function cardEl(s) {
+  const sig = card(s).trim();
+  const hit = cardCache.get(s.id);
+  if (hit && hit.sig === sig) return hit.el;
+  const tpl = fromHtml(sig);
+  if (hit) morph(hit.el, tpl);
+  const el = hit ? hit.el : tpl;
+  applyOpen(el);
+  cardCache.set(s.id, { el, sig });
+  return el;
+}
+function placeCards(cols, manual) {
+  const root = $('cards');
+  root.querySelectorAll('.dropline').forEach((d) => d.remove());
+  root.querySelectorAll('.col.over').forEach((c) => c.classList.remove('over'));
+  for (const el of [...root.children]) if (!el.classList.contains('col')) el.remove();
+  const ids = new Set(cols.flat().map((s) => s.id));
+  for (const id of [...cardCache.keys()]) if (!ids.has(id)) { cardCache.get(id).el.remove(); cardCache.delete(id); }
+  const colEls = [...root.children];
+  while (colEls.length < cols.length) colEls.push(root.appendChild(document.createElement('div')));
+  cols.forEach((col, i) => {
+    const c = colEls[i];
+    const cls = manual ? 'col manual' : 'col';
+    if (c.className !== cls) c.className = cls;
+    if (manual) { if (c.dataset.col !== String(i)) c.dataset.col = String(i); } else if (c.hasAttribute('data-col')) c.removeAttribute('data-col');
+    col.forEach((s, j) => {
+      const el = cardEl(s);
+      if (c.children[j] !== el) c.insertBefore(el, c.children[j] || null);
+    });
+  });
+  cols.forEach((col, i) => { while (colEls[i].children.length > col.length) colEls[i].lastElementChild.remove(); });
+  colEls.slice(cols.length).forEach((c) => c.remove());
 }
 
 const countOf = (k) => snap.sessions.filter(filters[k]).length;
@@ -231,7 +316,7 @@ const filterMenu = createMenu($('filterDd'), {
   onSelect: (v) => { filterBy = v; store.set('dash.filter', v); render(); },
   count: countOf,
   groups: [
-    { label: () => `Live · ${countOf('live')} = waiting + working + idle + stale`, items: [
+    { label: 'Live', items: [
       { value: 'live', label: 'All live' },
       { value: 'waiting', label: 'Waiting', dot: 'waiting' },
       { value: 'working', label: 'Working', dot: 'working' },
@@ -267,7 +352,7 @@ const sortMenu = createMenu($('sortDd'), {
     { value: 'state', label: 'Longest in state' },
     { value: 'tools', label: 'Most tools' },
     { value: 'started', label: 'Newest session' },
-    { value: 'manual', label: 'Manual (drag ⠿ to arrange)' },
+    { value: 'manual', label: 'Manual (drag cards to arrange)' },
   ] }],
 });
 $('q').oninput = (e) => { query = e.target.value; render(); };
@@ -364,7 +449,7 @@ function autoLayout(list) {
   const H = Math.max(320, window.innerHeight - top - 20);
   const hs = list.map((s) => heights.get(s.id) || 220);
   const total = hs.reduce((a, h) => a + h + GAP, 0);
-  const chosen = chooseColumns({ nMin, nMax, total, H, w, memo: layoutMemo, now: Date.now() });
+  const chosen = chooseColumns({ nMin, nMax, total, H, w, memo: layoutMemo, now: Date.now(), count: list.length });
   layoutMemo = chosen.memo;
   const n = chosen.n;
   const cols = Array.from({ length: n }, () => []);
@@ -409,7 +494,8 @@ function drawManual(list, now) {
     for (const u of ups) pending[u.id] = { col: u.col, order: u.order };
     postLayout(ups);
   }
-  $('cards').innerHTML = cols.map((col, i) => `<div class="col manual" data-col="${i}">${col.map((s) => card(s, now)).join('')}</div>`).join('');
+  placeCards(cols, true);
+  fillTimes($('cards'), now);
 }
 
 function dropTarget(x, y) {
@@ -433,13 +519,17 @@ function showDrop(x, y) {
 function endDrag() {
   drag = null;
   $('cards').classList.remove('dnd');
+  $('cards').querySelectorAll('.card.dragging').forEach((c) => c.classList.remove('dragging'));
   render();
 }
 
+let dragOk = false;
+$('cards').addEventListener('pointerdown', (e) => {
+  dragOk = sortBy === 'manual' && !e.target.closest('a,button,summary,input,textarea,select,.tk,.pop,.sdot');
+}, true);
 $('cards').addEventListener('dragstart', (e) => {
-  const grip = e.target.closest && e.target.closest('.grip');
-  if (!grip) return;
-  const cardEl = grip.closest('.card');
+  const cardEl = e.target.closest && e.target.closest('.card');
+  if (!cardEl || e.target !== cardEl || !dragOk) { e.preventDefault(); return; }
   drag = { id: cardEl.dataset.id };
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', drag.id);
@@ -473,16 +563,19 @@ function drawCards(list, now, depth) {
   if (drag || pressing) return;
   if (sortBy === 'manual' && list.length) return drawManual(list, now);
   if (!list.length) {
-    $('cards').innerHTML = `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
+    cardCache.clear();
+    const msg = snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.';
+    const root = $('cards');
+    if (root.children.length !== 1 || !root.firstElementChild.classList.contains('empty') || root.textContent !== msg) {
+      root.innerHTML = `<div class="empty">${msg}</div>`;
+    }
     return;
   }
   const cols = autoLayout(list);
-  $('cards').innerHTML = cols.map((col) => `<div class="col">${col.map((s) => card(s, now)).join('')}</div>`).join('');
+  placeCards(cols, false);
+  fillTimes($('cards'), now);
   for (const el of $('cards').querySelectorAll('.card')) heights.set(el.dataset.id, el.getBoundingClientRect().height);
-  if (depth < 2) {
-    const sig = (cs) => cs.map((col) => col.map((s) => s.id).join(',')).join('|');
-    if (sig(autoLayout(list)) !== sig(cols)) drawCards(list, now, depth + 1);
-  }
+  if (depth < 2 && colsSig(autoLayout(list)) !== colsSig(cols)) drawCards(list, now, depth + 1);
 }
 
 const ro = new ResizeObserver(() => {
@@ -520,6 +613,27 @@ function setConn(ok) {
   el.className = `conn ${ok ? 'ok' : 'down'}`;
   el.title = ok ? 'Connected: updates stream in live' : 'Reconnecting to the dashboard server…';
 }
+
+const FILTER_KEYS = ['live', 'waiting', 'working', 'all'];
+function moveSelection(d) {
+  const els = [...$('cards').querySelectorAll('.card')];
+  if (!els.length) return;
+  const cur = els.findIndex((c) => c.dataset.id === kbId);
+  const next = els[Math.max(0, Math.min(els.length - 1, cur < 0 ? (d > 0 ? 0 : els.length - 1) : cur + d))];
+  kbId = next.dataset.id;
+  els.forEach((c) => c.classList.toggle('kbsel', c === next));
+  next.scrollIntoView({ block: 'nearest' });
+}
+const selected = (act) => document.querySelector(`#cards .card.kbsel .acts [data-act=${act}]`);
+initKeys({
+  focusSearch: () => { $('q').focus(); $('q').select(); },
+  clearSearch: () => { $('q').value = ''; query = ''; $('q').blur(); render(); },
+  setFilter: (i) => { if (FILTER_KEYS[i]) { filterBy = FILTER_KEYS[i]; store.set('dash.filter', filterBy); render(); } },
+  toggleDrawer: () => $('drawerBtn').click(),
+  moveSelection,
+  openSelected: () => selected('open')?.click(),
+  togglePinSelected: () => selected('pin')?.click(),
+});
 
 function connect() {
   es = new EventSource('/api/stream');
