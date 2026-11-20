@@ -42,6 +42,8 @@ function normalise(s) {
   return s;
 }
 
+const PREF_KEYS = new Set(['sort', 'filter', 'cols', 'drawer', 'pinned']);
+
 class Store {
   constructor({ staleMs = 10 * 60 * 1000, feedSize = 200, now = Date.now } = {}) {
     this.sessions = new Map();
@@ -52,6 +54,7 @@ class Store {
     this.listeners = new Set();
     this.resolver = null;
     this.layout = {};
+    this.prefs = {};
     this.stuckMs = 3 * 60 * 1000;
   }
 
@@ -234,6 +237,14 @@ class Store {
     return changed;
   }
 
+  setPref(key, value) {
+    if (!PREF_KEYS.has(key) || typeof value !== 'string' || value.length > 40) return false;
+    if (this.prefs[key] === value) return false;
+    this.prefs[key] = value;
+    for (const fn of this.listeners) fn();
+    return true;
+  }
+
   setFlag(id, flag, value) {
     const s = this.sessions.get(id);
     if (!s || (flag !== 'pinned' && flag !== 'dismissed')) return false;
@@ -243,7 +254,7 @@ class Store {
   }
 
   dump() {
-    return { version: 1, sessions: [...this.sessions.values()], feed: this.feed, layout: this.layout };
+    return { version: 1, sessions: [...this.sessions.values()], feed: this.feed, layout: this.layout, prefs: this.prefs };
   }
 
   hydrate(data) {
@@ -251,6 +262,8 @@ class Store {
     for (const s of data.sessions || []) if (s && s.id) this.sessions.set(s.id, normalise(s));
     this.feed = (data.feed || []).slice(-this.feedSize);
     this.layout = data.layout && typeof data.layout === 'object' ? { ...data.layout } : {};
+    this.prefs = {};
+    if (data.prefs && typeof data.prefs === 'object') for (const [k, v] of Object.entries(data.prefs)) if (PREF_KEYS.has(k) && typeof v === 'string') this.prefs[k] = v;
   }
 
   snapshot() {
@@ -269,7 +282,7 @@ class Store {
       usd: live.reduce((a, s) => a + ((s.cost && s.cost.usd) || 0), 0),
       active: live.filter((s) => s.cost && s.cost.perHour > 0).length,
     };
-    return { now: t, sessions, global, layout: this.layout, feed: this.feed.slice(-100).reverse() };
+    return { now: t, sessions, global, layout: this.layout, prefs: this.prefs, feed: this.feed.slice(-100).reverse() };
   }
 
   prune(maxAgeMs = 24 * 3600 * 1000) {

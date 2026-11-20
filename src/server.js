@@ -41,6 +41,16 @@ function createServer(store, { staticDir } = {}) {
       });
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/api/prefs') {
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 1e4) req.destroy(); });
+      req.on('end', () => {
+        let ok = false;
+        try { const { key, value } = JSON.parse(body); store.setPref(key, value); ok = true; } catch { /* ignore */ }
+        res.writeHead(ok ? 204 : 400).end();
+      });
+      return;
+    }
     if (req.method === 'POST' && url.pathname === '/api/layout') {
       let body = '';
       req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });

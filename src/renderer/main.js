@@ -6,9 +6,17 @@ if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.a
 let snap = { sessions: [], feed: [], now: Date.now() };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const PREF_KEYS = { 'dash.sort': 'sort', 'dash.filter': 'filter', 'dash.cols': 'cols', 'dash.drawer': 'drawer', 'dash.pinned': 'pinned' };
+let localTouch = 0;
 const store = {
   get(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
+  set(k, v, persist = true) {
+    try { localStorage.setItem(k, v); } catch { /* ignore */ }
+    if (persist && PREF_KEYS[k]) {
+      localTouch = Date.now();
+      fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ key: PREF_KEYS[k], value: v }) }).catch(() => {});
+    }
+  },
 };
 
 function dur(ms) {
@@ -63,11 +71,11 @@ function childRow(c, now) {
   const end = c.endedAt || now;
   const shell = c.kind === 'shell';
   const label = c.status === 'waiting' ? 'needs you' : c.status;
-  const title = shell ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span>` : esc(c.desc || c.type || 'subagent');
-  const sub = shell ? 'background shell' : c.desc && c.type ? esc(c.type) : '';
+  const showType = !shell && c.type && c.type !== 'general-purpose';
+  const title = shell ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span>` : esc(c.desc || (showType ? c.type : 'subagent'));
+  const badge = showType && c.desc ? ` <span class="ctype">${esc(c.type)}</span>` : shell ? ' <span class="ctype">shell</span>' : '';
   return `<div class="child ${c.status} ${shell ? 'shell' : ''}">
-    <div class="ctop"><span class="ct">${title}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
-    ${sub ? `<div class="csub mut">${sub}</div>` : ''}
+    <div class="ctop"><span class="ct">${title}${badge}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
     ${c.status === 'waiting' ? `<div class="cmsg">${esc(c.message || 'Needs your input')}</div>` : ''}
     ${c.status === 'running' ? `<div class="act sm"><span class="adot"></span>${esc(c.activity || 'Working…')}</div>` : ''}
   </div>`;
@@ -259,15 +267,15 @@ $('cards').addEventListener('click', (e) => {
 
 let drawerOpen = store.get('dash.drawer', 'open') === 'open';
 let drawerPinned = store.get('dash.pinned', 'pinned') === 'pinned';
-function applyDrawer() {
+function applyDrawer(persist = true) {
   document.body.classList.toggle('drawer-open', drawerOpen);
   document.body.classList.toggle('drawer-pinned', drawerPinned);
   $('drawerBtn').classList.toggle('on', drawerOpen);
   $('drawerBtn').setAttribute('aria-expanded', String(drawerOpen));
   $('pinBtn').classList.toggle('on', drawerPinned);
   $('pinBtn').textContent = drawerPinned ? 'Pinned' : 'Pin';
-  store.set('dash.drawer', drawerOpen ? 'open' : 'closed');
-  store.set('dash.pinned', drawerPinned ? 'pinned' : 'floating');
+  store.set('dash.drawer', drawerOpen ? 'open' : 'closed', persist);
+  store.set('dash.pinned', drawerPinned ? 'pinned' : 'floating', persist);
 }
 $('drawerBtn').onclick = (e) => { e.stopPropagation(); drawerOpen = !drawerOpen; applyDrawer(); };
 $('closeBtn').onclick = () => { drawerOpen = false; applyDrawer(); };
@@ -278,7 +286,7 @@ const onDocClick = (e) => {
 const onKey = (e) => { if (e.key === 'Escape' && drawerOpen && !drawerPinned) { drawerOpen = false; applyDrawer(); } };
 document.addEventListener('click', onDocClick);
 document.addEventListener('keydown', onKey);
-applyDrawer();
+applyDrawer(false);
 
 const CARD_MIN = 360;
 const CARD_MAX = 800;
@@ -425,6 +433,25 @@ ro.observe($('cards'));
 const onResize = () => render();
 window.addEventListener('resize', onResize);
 
+let prefsSynced = false;
+function syncPrefs(p) {
+  const mine = { sort: sortBy, filter: filterBy, cols: colsPref, drawer: drawerOpen ? 'open' : 'closed', pinned: drawerPinned ? 'pinned' : 'floating' };
+  if (!prefsSynced) {
+    prefsSynced = true;
+    for (const [k, v] of Object.entries(mine)) if (p[k] === undefined) {
+      const lk = Object.keys(PREF_KEYS).find((x) => PREF_KEYS[x] === k);
+      if (store.get(lk, null) !== null) fetch('/api/prefs', { method: 'POST', body: JSON.stringify({ key: k, value: v }) }).catch(() => {});
+    }
+  } else if (Date.now() - localTouch < 3000) return;
+  let drawerChanged = false;
+  if (p.sort && p.sort !== sortBy) { sortBy = p.sort; store.set('dash.sort', sortBy, false); }
+  if (p.filter && p.filter !== filterBy) { filterBy = p.filter; store.set('dash.filter', filterBy, false); }
+  if (p.cols && p.cols !== colsPref) { colsPref = p.cols; store.set('dash.cols', colsPref, false); }
+  if (p.drawer && (p.drawer === 'open') !== drawerOpen) { drawerOpen = p.drawer === 'open'; drawerChanged = true; }
+  if (p.pinned && (p.pinned === 'pinned') !== drawerPinned) { drawerPinned = p.pinned === 'pinned'; drawerChanged = true; }
+  if (drawerChanged) applyDrawer(false);
+}
+
 let es;
 let timer;
 function connect() {
@@ -432,6 +459,7 @@ function connect() {
   es.onopen = () => { $('conn').textContent = 'live'; };
   es.onmessage = (m) => {
     snap = JSON.parse(m.data);
+    syncPrefs(snap.prefs || {});
     for (const [id, p] of Object.entries(pending)) {
       const l = (snap.layout || {})[id];
       if (l && l.col === p.col && l.order === p.order) delete pending[id];
