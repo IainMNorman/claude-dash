@@ -17,7 +17,7 @@ const server = createServer(store, { staticDir: path.join(__dirname, '..', 'dist
 function createWindow(port) {
   win = new BrowserWindow({
     width: 980, height: 700, title: 'Claude Dash', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111315' : '#f5f6f7',
-    titleBarStyle: 'hidden', trafficLightPosition: { x: 18, y: 21 },
+    titleBarStyle: 'hidden', trafficLightPosition: { x: 18, y: 18 },
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   win.loadURL(process.env.DASH_DEV_URL || `http://127.0.0.1:${port}/`);
