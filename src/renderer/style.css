@@ -35,14 +35,6 @@ main h2 input{width:110px}
 .card.stuck .badge{color:var(--wait)}
 .card.pinned{border-top-color:var(--work)}
 .msg{font-weight:600}
-.kids{margin-top:8px;display:grid;gap:4px}
-.child{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:start;padding:4px 8px;border-radius:6px;background:color-mix(in srgb,var(--fg) 4%,transparent);font-size:12px}
-.child .dot{width:8px;height:8px;border-radius:50%;margin-top:4px;background:var(--work)}
-.child.waiting{background:color-mix(in srgb,var(--wait) 16%,transparent)}
-.child.waiting .dot{background:var(--wait)}
-.child.done .dot{background:var(--idle)}
-.child .cd{overflow-wrap:anywhere}
-.tool.sm{margin-top:2px;color:var(--mut)}
 .fin{margin-top:8px}
 .fin summary{cursor:pointer;color:var(--mut);font-size:12px}
 .acts{display:flex;gap:8px;margin-top:10px;font-size:12px}
@@ -64,7 +56,6 @@ body.drawer-open:not(.drawer-pinned) .feed{max-height:none}
 main h2 select:first-of-type{margin-left:auto}
 h1{white-space:nowrap}
 
-.child .sh{font-family:ui-monospace,Menlo,monospace}
 
 .git b{color:var(--fg)}
 .wt{border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--work)}
@@ -98,3 +89,16 @@ main h2 .dd:first-of-type{margin-left:auto}
 
 .electron header{padding-left:86px;-webkit-app-region:drag;user-select:none}
 .electron header button,.electron header input,.electron header a{-webkit-app-region:no-drag}
+
+.kids{margin:10px 0 0 6px;padding-left:14px;border-left:2px solid var(--line);display:grid;gap:8px}
+.child{--c:var(--work);position:relative;background:color-mix(in srgb,var(--fg) 3%,var(--panel));border:1px solid var(--line);border-left:3px solid var(--c);border-radius:8px;padding:7px 10px;min-width:0}
+.child::before{content:'';position:absolute;left:-16px;top:16px;width:14px;border-top:2px solid var(--line)}
+.child.waiting{--c:var(--wait);background:color-mix(in srgb,var(--wait) 12%,var(--panel));animation:pulse 2s ease-in-out infinite}
+.child.done{--c:var(--idle);opacity:.75}
+.ctop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ct{font-weight:600;font-size:13px;overflow-wrap:anywhere}
+.cb{font-size:11px;color:var(--c);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.csub{font-size:11px;margin-top:1px}
+.child .tool{margin-top:4px;font-size:11px;color:var(--mut)}
+.child .cmsg{margin-top:4px;font-size:12px;font-weight:600;color:var(--wait);overflow-wrap:anywhere}
+.child .sh{font-family:ui-monospace,Menlo,monospace}

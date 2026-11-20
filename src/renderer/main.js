@@ -59,11 +59,15 @@ function visible() {
 
 function childRow(c, now) {
   const end = c.endedAt || now;
-  const what = c.status === 'waiting' ? c.message || 'needs you' : c.tool ? `${c.tool} ${c.toolDetail}` : '';
-  return `<div class="child ${c.status}">
-    <span class="dot"></span>
-    <span class="cd">${c.kind === 'shell' ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span> <span class="mut">background shell</span>` : `${esc(c.desc || c.type || 'subagent')}${c.type && c.desc ? ` <span class="mut">${esc(c.type)}</span>` : ''}`}${what ? `<div class="tool sm">${esc(what)}</div>` : ''}</span>
-    <span class="mut">${c.status === 'waiting' ? 'needs you · ' : ''}${dur(end - c.startedAt)}</span>
+  const shell = c.kind === 'shell';
+  const label = c.status === 'waiting' ? 'needs you' : c.status;
+  const title = shell ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span>` : esc(c.desc || c.type || 'subagent');
+  const sub = shell ? 'background shell' : c.desc && c.type ? esc(c.type) : '';
+  return `<div class="child ${c.status} ${shell ? 'shell' : ''}">
+    <div class="ctop"><span class="ct">${title}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
+    ${sub ? `<div class="csub mut">${sub}</div>` : ''}
+    ${c.status === 'waiting' ? `<div class="cmsg">${esc(c.message || 'Needs your input')}</div>` : ''}
+    ${c.status === 'running' && c.tool ? `<div class="tool">▸ ${esc(c.tool)} ${esc(c.toolDetail)}</div>` : ''}
   </div>`;
 }
 
