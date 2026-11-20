@@ -15,6 +15,7 @@ $('sortDd').insertAdjacentHTML('beforebegin', icon('sort', 'ddico'));
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const PREF_KEYS = { 'dash.sort': 'sort', 'dash.filter': 'filter', 'dash.cols': 'cols', 'dash.drawer': 'drawer', 'dash.pinned': 'pinned' };
 let localTouch = 0;
+const FEED_TEXT = { SessionStart: 'Session started', SessionEnd: 'Session ended', Stop: 'Turn finished', SubagentStop: 'Subagent finished', UserPromptSubmit: 'Prompt sent', Notification: 'Needs attention' };
 const FEED_ICON = { PreToolUse: 'wrench', SessionStart: 'play', SessionEnd: 'flag', Stop: 'check', SubagentStop: 'bot', Notification: 'bell', UserPromptSubmit: 'list' };
 const store = {
   get(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } },
@@ -118,8 +119,8 @@ function tokenBlock(tk, c) {
   const seg = (cls, n) => `<i class="${cls}" style="width:${pct(n)}%"></i>`;
   const row = (cls, name, n) => `<div><i class="${cls}"></i><span>${name}</span><b>${num(n)}</b></div>`;
   return `<div class="tiles">
-    <div class="tile" title="${c ? costTip(c) : ''}"><small>Spend</small><span class="tv">${c ? money(c.usd) : '–'}</span><small class="ts">${c ? `≈ ${money(c.perHour)}/h now` : ''}</small><div class="tbar off"></div></div>
-    <div class="tile tk" tabindex="0"><small>Tokens</small><span class="tv">${num(total)}</span><small class="ts">${hit}% cached</small>
+    <div class="tile" title="${c ? costTip(c) : ''}"><small>Spend</small><span class="tv">${c ? money(c.usd) : '–'}</span><small class="ts">${c ? `${money(c.perHour)}/h` : ''}</small><div class="tbar off"></div></div>
+    <div class="tile tk" tabindex="0"><small>Tokens</small><span class="tv">${num(total)}</span><small class="ts" title="${hit}% of prompt tokens came from cache">${hit}% hit</small>
       <div class="tbar">${seg('tcr', tk.cacheRead)}${seg('tcw', tk.cacheWrite)}${seg('tin', tk.input)}${seg('tout', tk.output)}</div>
       <div class="pop">${row('tcr', 'Cache read', tk.cacheRead)}${row('tcw', 'Cache write', tk.cacheWrite)}${row('tin', 'New input', tk.input)}${row('tout', 'Output', tk.output)}</div></div>
     <div class="tile cxt ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}"><small>Context</small><span class="tv">${ctx}%</span><small class="ts">${num(tk.context)}</small><div class="cbar"><i style="width:${ctx}%"></i></div></div>
@@ -186,7 +187,8 @@ function card(s, now) {
         if (s.displayState === 'ended') return '';
         const n = active.length;
         const live = s.displayState === 'working' || s.displayState === 'waiting';
-        const text = (live && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : `Last event ${dur(now - s.lastEvent)} ago`);
+        const delegating = /^(Delegating|Starting background)/.test(s.activity || '');
+        const text = (live && s.activity && !(delegating && n) && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : `Last event ${dur(now - s.lastEvent)} ago`);
         return `<div class="act${live && (s.activity || n) ? '' : ' quiet'}">${live && (s.activity || n) ? '<span class="adot"></span>' : icon('clock')}${esc(text)}</div>`;
       })()}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
@@ -219,7 +221,7 @@ function render() {
   drawCards(list, now, 0);
   $('feed').innerHTML = snap.feed.map((f) => `
     <div class="row${f.child ? ' kid' : ''}"><span class="mut">${icon(FEED_ICON[f.event] || 'wrench')}${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
-    <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' ? f.text : f.event + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
+    <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' || (f.event === 'SessionEnd' && f.text) ? (f.event === 'SessionEnd' ? 'Session ' + f.text : f.text) : (FEED_TEXT[f.event] || f.event) + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
 }
 
 const countOf = (k) => snap.sessions.filter(filters[k]).length;
