@@ -182,7 +182,12 @@ function card(s, now) {
       <div class="meta">${gitLine(s.git) || '<div></div>'}<div class="mut path" title="${esc(s.cwd)}"><span>${esc(shortPath(s.cwd))}</span><span class="nw"> · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</span></div></div>
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
-      ${s.displayState === 'working' || s.displayState === 'waiting' ? `<div class="act">${s.activity ? `<span class="adot"></span>${esc(s.activity)}` : ''}</div>` : ''}
+      ${(() => {
+        if (s.displayState !== 'working' && s.displayState !== 'waiting') return '';
+        const n = active.length;
+        const text = s.activity || (n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : '');
+        return text ? `<div class="act"><span class="adot"></span>${esc(text)}</div>` : '';
+      })()}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
       ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
       ${shells.length ? shellGroup(s.id, shells, now) : ''}
