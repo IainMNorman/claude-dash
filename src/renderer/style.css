@@ -69,3 +69,28 @@ h1{white-space:nowrap}
 .git b{color:var(--fg)}
 .wt{border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--work)}
 .dirty{color:var(--wait)}
+
+.dd{position:relative;text-transform:none;letter-spacing:0}
+main h2 .dd:first-of-type{margin-left:auto}
+.ddbtn{font:inherit;font-size:12px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.ddbtn:hover{background:color-mix(in srgb,var(--fg) 8%,var(--panel))}
+.ddbtn .k{color:var(--mut)}
+.ddbtn .cn{color:var(--mut);font-weight:500}
+.ddbtn .chev{color:var(--mut);font-size:10px}
+.ddmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:260px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.ddmenu[hidden]{display:none}
+.ddgroup+.ddgroup{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
+.ddhead{font-size:11px;color:var(--mut);padding:4px 8px;text-transform:uppercase;letter-spacing:.04em}
+.dditem{font:inherit;font-size:13px;color:var(--fg);text-align:left;width:100%;background:transparent;border:0;border-radius:6px;padding:5px 8px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.dditem:hover,.dditem:focus-visible{background:color-mix(in srgb,var(--fg) 8%,transparent);outline:none}
+.dditem .ddck{width:12px;color:var(--work);font-size:12px}
+.dditem.on .ddck::before{content:'✓'}
+.dditem .ddl{flex:1}
+.dditem .ddn{color:var(--mut);font-variant-numeric:tabular-nums}
+.dditem .ddnote{color:var(--mut);font-size:11px}
+.dditem .dddot{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+.dddot.waiting{background:var(--wait)}.dddot.working{background:var(--work)}.dddot.idle{background:var(--idle)}.dddot.stale{background:var(--stale)}.dddot.ended{background:var(--end)}
+.ddgroup:has(.dditem .dddot) .dditem:not(.sub) .ddck{margin-left:0}
+.ddgroup .dditem{padding-left:14px}
+.dditem.sub{padding-left:32px}
+.dditem.sub .dddot{background:transparent;border:1px dashed var(--wait)}

@@ -1,3 +1,5 @@
+import { createMenu } from './menu.js';
+
 let snap = { sessions: [], feed: [], now: Date.now() };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -110,7 +112,8 @@ function render() {
   const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
   $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
   document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
-  updateFilterLabels();
+  filterMenu.refresh();
+  sortMenu.refresh();
   const list = visible();
   $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
@@ -118,23 +121,41 @@ function render() {
     <span><b>${esc(f.project)}</b> ${esc(f.event)} ${esc(f.tool)}<div class="d">${esc(f.detail)}</div></span></div>`).join('');
 }
 
-$('sort').value = sortBy;
-$('sort').onchange = (e) => { sortBy = e.target.value; store.set('dash.sort', sortBy); render(); };
-const FILTER_LABELS = { live: 'All live', waiting: 'Waiting', working: 'Working', idle: 'Idle', stale: 'Stale', stuck: 'Quiet? (part of Working)', ended: 'Ended', dismissed: 'Dismissed', all: 'All sessions' };
-let labelSig = '';
-function updateFilterLabels() {
-  const counts = Object.keys(FILTER_LABELS).map((k) => snap.sessions.filter(filters[k]).length);
-  const sig = counts.join(',');
-  if (sig === labelSig) return;
-  labelSig = sig;
-  Object.keys(FILTER_LABELS).forEach((k, i) => {
-    const o = $('filter').querySelector(`option[value="${k}"]`);
-    if (o) o.textContent = `${FILTER_LABELS[k]} · ${counts[i]}`;
-  });
-  $('gLive').label = `Live · ${counts[0]} = waiting + working + idle + stale`;
-}
-$('filter').value = filterBy;
-$('filter').onchange = (e) => { filterBy = e.target.value; store.set('dash.filter', filterBy); render(); };
+const countOf = (k) => snap.sessions.filter(filters[k]).length;
+const filterMenu = createMenu($('filterDd'), {
+  prefix: 'Show',
+  getValue: () => filterBy,
+  onSelect: (v) => { filterBy = v; store.set('dash.filter', v); render(); },
+  count: countOf,
+  groups: [
+    { label: () => `Live · ${countOf('live')} = waiting + working + idle + stale`, items: [
+      { value: 'live', label: 'All live' },
+      { value: 'waiting', label: 'Waiting', dot: 'waiting' },
+      { value: 'working', label: 'Working', dot: 'working' },
+      { value: 'idle', label: 'Idle', dot: 'idle' },
+      { value: 'stale', label: 'Stale', dot: 'stale' },
+      { value: 'stuck', label: 'Quiet?', dot: 'waiting', sub: true, note: 'part of Working' },
+    ] },
+    { label: 'Not live', items: [
+      { value: 'ended', label: 'Ended', dot: 'ended' },
+      { value: 'dismissed', label: 'Dismissed' },
+    ] },
+    { label: 'Everything', items: [{ value: 'all', label: 'All sessions' }] },
+  ],
+});
+const sortMenu = createMenu($('sortDd'), {
+  prefix: 'Sort',
+  getValue: () => sortBy,
+  onSelect: (v) => { sortBy = v; store.set('dash.sort', v); render(); },
+  groups: [{ items: [
+    { value: 'status', label: 'Status (needs you first)' },
+    { value: 'latest', label: 'Latest event' },
+    { value: 'name', label: 'Name' },
+    { value: 'state', label: 'Longest in state' },
+    { value: 'tools', label: 'Most tools' },
+    { value: 'started', label: 'Newest session' },
+  ] }],
+});
 $('q').oninput = (e) => { query = e.target.value; render(); };
 
 $('cards').addEventListener('toggle', (e) => {
@@ -187,6 +208,6 @@ connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
+  import.meta.hot.dispose(() => { filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
   import.meta.hot.accept();
 }
