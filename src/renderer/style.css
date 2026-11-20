@@ -7,7 +7,8 @@ h1{font-size:16px;margin:0;flex:1}
 .stat{color:var(--mut)}.stat b{color:var(--fg)}
 main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;padding:20px}
 @media(max-width:800px){main{grid-template-columns:minmax(0,1fr)}}
-.cards{--card-min:400px;display:grid;gap:12px;align-content:start;align-items:start;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--card-min)),1fr))}
+.cards{display:grid;gap:12px;align-content:start;align-items:start;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr))}
+.cards>.empty{grid-column:1/-1}
 .cards,.card{min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:12px 14px}
 .card.waiting{--c:var(--wait)}.card.working{--c:var(--work)}.card.idle{--c:var(--idle)}.card.stale{--c:var(--stale)}.card.ended{--c:var(--end);opacity:.6}

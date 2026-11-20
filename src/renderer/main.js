@@ -183,6 +183,8 @@ function render() {
   filterMenu.refresh();
   sortMenu.refresh();
   const list = visible();
+  cardCount = list.length;
+  fitColumns();
   $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
     <div class="row${f.child ? ' kid' : ''}"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
@@ -265,6 +267,26 @@ document.addEventListener('click', onDocClick);
 document.addEventListener('keydown', onKey);
 applyDrawer();
 
+const CARD_MIN = 360;
+const CARD_MAX = 560;
+const GAP = 12;
+let cardCount = 0;
+function fitColumns() {
+  const w = $('cards').clientWidth;
+  if (!w) return;
+  const nMin = Math.max(1, Math.ceil((w + GAP) / (CARD_MAX + GAP)));
+  const nMax = Math.max(nMin, Math.floor((w + GAP) / (CARD_MIN + GAP)));
+  let best = nMin;
+  let bestWaste = Infinity;
+  for (let n = nMin; n <= nMax; n++) {
+    const waste = cardCount ? (n - (cardCount % n)) % n : 0;
+    if (waste < bestWaste) { best = n; bestWaste = waste; }
+  }
+  if ($('cards').style.getPropertyValue('--cols') !== String(best)) $('cards').style.setProperty('--cols', String(best));
+}
+const ro = new ResizeObserver(fitColumns);
+ro.observe($('cards'));
+
 let es;
 let timer;
 function connect() {
@@ -277,6 +299,6 @@ connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
+  import.meta.hot.dispose(() => { ro.disconnect(); filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
   import.meta.hot.accept();
 }
