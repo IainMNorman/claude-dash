@@ -113,10 +113,9 @@ function tokenBlock(tk, c) {
   const ctx = Math.min(100, Math.round((tk.context / win) * 100));
   const tone = ctx >= 90 ? 'hot' : ctx >= 70 ? 'warm' : '';
   return `<div class="tok">
-    ${costLine(c)}
-    <div class="tbar" title="Share of all tokens">
+    <div class="costbar">${costLine(c)}<div class="tbar" title="Share of all tokens">
       <i class="tcr" style="width:${pct(tk.cacheRead)}%"></i><i class="tcw" style="width:${pct(tk.cacheWrite)}%"></i><i class="tin" style="width:${pct(tk.input)}%"></i><i class="tout" style="width:${pct(tk.output)}%"></i>
-    </div>
+    </div></div>
     <div class="tleg">
       <span><i class="tcr"></i>cache read ${num(tk.cacheRead)} <b>${hit}% hit</b></span>
       <span title="cache write ${num(tk.cacheWrite)} · new input ${num(tk.input)}"><i class="tin"></i>new ${num(tk.input + tk.cacheWrite)}</span>

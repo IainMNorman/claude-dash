@@ -257,3 +257,6 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .meta .path{display:flex;min-width:0;justify-content:flex-end;text-align:right}
 .meta .path>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meta .nw{flex:none;white-space:nowrap}
+.costbar{display:flex;align-items:center;gap:14px}
+.costbar .cost{flex:none;white-space:nowrap}
+.costbar .tbar{flex:1;min-width:60px}
