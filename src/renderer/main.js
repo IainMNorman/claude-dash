@@ -184,8 +184,11 @@ function render() {
   sortMenu.refresh();
   const list = visible();
   cardCount = list.length;
-  fitColumns();
-  $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
+  const ncol = fitColumns();
+  renderedCols = ncol;
+  const per = Math.max(1, Math.ceil(list.length / ncol));
+  const columns = Array.from({ length: ncol }, (_, i) => `<div class="col">${list.slice(i * per, (i + 1) * per).map((s) => card(s, now)).join('')}</div>`).join('');
+  $('cards').innerHTML = list.length ? columns : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
     <div class="row${f.child ? ' kid' : ''}"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
     <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' ? f.text : f.event + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
@@ -271,9 +274,11 @@ const CARD_MIN = 360;
 const CARD_MAX = 560;
 const GAP = 12;
 let cardCount = 0;
+let lastCols = 1;
+let renderedCols = 0;
 function fitColumns() {
   const w = $('cards').clientWidth;
-  if (!w) return;
+  if (!w) return lastCols;
   const nMin = Math.max(1, Math.ceil((w + GAP) / (CARD_MAX + GAP)));
   const nMax = Math.max(nMin, Math.floor((w + GAP) / (CARD_MIN + GAP)));
   let best = nMin;
@@ -282,9 +287,10 @@ function fitColumns() {
     const waste = cardCount ? (n - (cardCount % n)) % n : 0;
     if (waste < bestWaste) { best = n; bestWaste = waste; }
   }
-  if ($('cards').style.getPropertyValue('--cols') !== String(best)) $('cards').style.setProperty('--cols', String(best));
+  lastCols = best;
+  return best;
 }
-const ro = new ResizeObserver(fitColumns);
+const ro = new ResizeObserver(() => { if (fitColumns() !== renderedCols) render(); });
 ro.observe($('cards'));
 
 let es;
