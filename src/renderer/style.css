@@ -65,3 +65,7 @@ main h2 select:first-of-type{margin-left:auto}
 h1{white-space:nowrap}
 
 .child .sh{font-family:ui-monospace,Menlo,monospace}
+
+.git b{color:var(--fg)}
+.wt{border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--work)}
+.dirty{color:var(--wait)}

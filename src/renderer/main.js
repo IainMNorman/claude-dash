@@ -46,7 +46,7 @@ const filters = {
 function visible() {
   const q = query.trim().toLowerCase();
   let list = snap.sessions.filter(filters[filterBy] || filters.live);
-  if (q) list = list.filter((s) => `${s.project} ${s.title} ${s.cwd} ${s.prompt} ${s.toolDetail}`.toLowerCase().includes(q));
+  if (q) list = list.filter((s) => `${s.project} ${s.title} ${s.cwd} ${s.git ? s.git.branch + ' ' + s.git.repo : ''} ${s.prompt} ${s.toolDetail}`.toLowerCase().includes(q));
   const fn = sorters[sortBy];
   if (fn) list = [...list].sort(fn);
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned));
@@ -62,6 +62,18 @@ function childRow(c, now) {
   </div>`;
 }
 
+function gitLine(g) {
+  if (!g) return '';
+  const bits = [];
+  if (g.changed) bits.push(`±${g.changed}`);
+  if (g.untracked) bits.push(`?${g.untracked}`);
+  if (g.ahead) bits.push(`↑${g.ahead}`);
+  if (g.behind) bits.push(`↓${g.behind}`);
+  if (g.conflicts) bits.push(`⚠${g.conflicts}`);
+  const state = bits.length ? bits.join(' ') : 'clean';
+  return `<div class="git mut">⎇ <b>${esc(g.branch || 'detached')}</b>${g.worktree ? ` <span class="wt">worktree ${esc(g.worktreeName)}</span>` : ''} · ${esc(g.repo)} · <span class="${g.changed || g.untracked ? 'dirty' : ''}">${state}</span></div>`;
+}
+
 function card(s, now) {
   const kids = s.children || [];
   const active = kids.filter((c) => c.status !== 'done');
@@ -75,6 +87,7 @@ function card(s, now) {
         <span class="badge">${badge} · ${dur(now - s.stateSince)}</span>
       </div>
       <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
+      ${gitLine(s.git)}
       ${tk ? `<div class="mut">↑ ${num(tk.input + tk.cacheWrite)} · ↓ ${num(tk.output)} · cache ${num(tk.cacheRead)}</div>` : ''}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
