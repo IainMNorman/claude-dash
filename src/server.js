@@ -41,6 +41,26 @@ function createServer(store, { staticDir } = {}) {
       });
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/api/open') {
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 1e4) req.destroy(); });
+      req.on('end', () => {
+        let code = 400;
+        try {
+          const origin = req.headers.origin;
+          if (origin && new URL(origin).host !== req.headers.host) { res.writeHead(403).end(); return; }
+          const { id, target } = JSON.parse(body);
+          const s = store.sessions.get(id);
+          const apps = { finder: [], terminal: ['-a', 'Terminal'] };
+          if (s && apps[target] && s.cwd && fs.existsSync(s.cwd) && fs.statSync(s.cwd).isDirectory()) {
+            require('node:child_process').execFile('open', [...apps[target], s.cwd], () => {});
+            code = 204;
+          } else code = 404;
+        } catch { /* ignore */ }
+        res.writeHead(code).end();
+      });
+      return;
+    }
     if (req.method === 'POST' && url.pathname === '/api/prefs') {
       let body = '';
       req.on('data', (c) => { body += c; if (body.length > 1e4) req.destroy(); });

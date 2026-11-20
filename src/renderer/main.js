@@ -270,6 +270,30 @@ $('cards').addEventListener('toggle', (e) => {
   const key = d.classList.contains('shells') ? d.dataset.id + ':shells' : d.dataset.id;
   if (d.open) openFinished.add(key); else openFinished.delete(key);
 }, true);
+let ctxMenu;
+function closeCtx() { if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; } }
+document.addEventListener('click', closeCtx);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); });
+window.addEventListener('blur', closeCtx);
+$('cards').addEventListener('contextmenu', (e) => {
+  const path = e.target.closest('.path');
+  if (!path) return;
+  e.preventDefault();
+  closeCtx();
+  const id = path.closest('.card').dataset.id;
+  ctxMenu = document.createElement('div');
+  ctxMenu.className = 'ddmenu ctxmenu';
+  ctxMenu.innerHTML = `<div class="ddgroup"><button class="dditem" data-t="finder" type="button">${icon('folder')}<span class="ddl">Open in Finder</span></button><button class="dditem" data-t="terminal" type="button">${icon('terminal')}<span class="ddl">Open in Terminal</span></button></div>`;
+  ctxMenu.onclick = (ev) => {
+    const b = ev.target.closest('[data-t]');
+    if (b) fetch('/api/open', { method: 'POST', body: JSON.stringify({ id, target: b.dataset.t }) }).catch(() => {});
+  };
+  document.body.appendChild(ctxMenu);
+  const w = ctxMenu.offsetWidth;
+  const h = ctxMenu.offsetHeight;
+  ctxMenu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - w - 8)) + 'px';
+  ctxMenu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - h - 8)) + 'px';
+});
 $('cards').addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (!el) return;

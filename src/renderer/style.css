@@ -287,3 +287,7 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .proj{gap:4px}
 .sico .sdot{margin:0 1px}
 .prompt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ctxmenu{position:fixed;right:auto;width:max-content;z-index:50;min-width:200px;padding:6px 0;display:block}
+.ctxmenu .dditem{padding:6px 14px;gap:10px}
+.ctxmenu .ico{width:15px;height:15px;color:var(--mut)}
+.meta .path{cursor:context-menu}
