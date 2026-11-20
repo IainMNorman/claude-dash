@@ -284,19 +284,5 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .sico{display:inline-flex;align-items:center;color:var(--c);flex:none}
 .sico .ico{width:15px;height:15px;color:var(--c)}
 .sico .sdot{margin:0 3px}
-/* tighter spacing */
-.card{padding:12px 14px}
-.proj{gap:6px}
-.meta{margin-top:0}
-.tiles{margin-top:8px;gap:6px}
-.tile{padding:6px 10px}
-.tile .tbar,.tile .cbar{margin-top:4px}
-.act{margin-top:6px;height:auto;line-height:1.35}
-.act:empty{display:none}
-.prompt{margin-top:4px}
-.fin{margin-top:6px}
-.kids{margin-top:8px;gap:4px}
-.child{padding:6px 10px}
-.acts{margin-top:8px}
-.acts a,.acts button{padding:3px 8px}
-.cards,.col{gap:8px}
+.proj{gap:4px}
+.sico .sdot{margin:0 1px}
