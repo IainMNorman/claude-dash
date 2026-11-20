@@ -5,21 +5,22 @@ body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,s
 header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
 h1{font-size:16px;margin:0;flex:1}
 .stat{color:var(--mut)}.stat b{color:var(--fg)}
-main{display:grid;grid-template-columns:1fr 340px;gap:20px;padding:20px}
-@media(max-width:800px){main{grid-template-columns:1fr}}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;padding:20px}
+@media(max-width:800px){main{grid-template-columns:minmax(0,1fr)}}
 .cards{display:grid;gap:12px;align-content:start}
+.cards,.card{min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:8px;padding:12px 14px}
 .card.waiting{--c:var(--wait)}.card.working{--c:var(--work)}.card.idle{--c:var(--idle)}.card.stale{--c:var(--stale)}.card.ended{--c:var(--end);opacity:.6}
 .top{display:flex;justify-content:space-between;gap:8px}
 .proj{font-weight:600}
 .badge{font-size:12px;color:var(--c);text-transform:uppercase;letter-spacing:.04em}
 .mut{color:var(--mut);font-size:12px}
-.tool{font-family:ui-monospace,Menlo,monospace;font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.prompt{margin-top:6px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool{font-family:ui-monospace,Menlo,monospace;font-size:12px;margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere}
+.prompt{margin-top:6px;color:var(--mut);overflow-wrap:anywhere}
 .msg{margin-top:6px;color:var(--wait)}
 aside h2{font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .feed{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-height:75vh;overflow:auto}
-.row{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px;display:grid;grid-template-columns:56px 1fr;gap:8px}
+.row{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px}
 .row:last-child{border:0}
 .row>span:last-child{min-width:0}
 .row .d{color:var(--mut);white-space:pre-wrap;overflow-wrap:anywhere}
