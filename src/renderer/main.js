@@ -266,7 +266,7 @@ document.addEventListener('keydown', onKey);
 applyDrawer();
 
 const CARD_MIN = 360;
-const CARD_MAX = 560;
+const CARD_MAX = 800;
 const GAP = 12;
 const heights = new Map();
 let lastW = 0;
