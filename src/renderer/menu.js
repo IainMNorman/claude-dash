@@ -42,21 +42,27 @@ export function createMenu(root, { prefix, groups, getValue, onSelect, count }) 
 
   const items = () => [...menu.querySelectorAll('.dditem')];
 
+  btn.innerHTML = `<span class="k"></span><span class="cur"></span>${count ? '<b class="cn"></b>' : ''}<span class="chev">▾</span>`;
+  const kEl = btn.querySelector('.k');
+  const curEl = btn.querySelector('.cur');
+  const cnEl = btn.querySelector('.cn');
+  kEl.textContent = prefix;
+  const setText = (el, t) => { const v = String(t); if (el.textContent !== v) el.textContent = v; };
+
   function refresh() {
     const v = getValue();
     const cur = byValue.get(v);
-    const n = count ? count(v) : null;
-    btn.innerHTML = `<span class="k"></span><span class="cur"></span>${n === null ? '' : '<b class="cn"></b>'}<span class="chev">▾</span>`;
-    btn.querySelector('.k').textContent = prefix;
-    btn.querySelector('.cur').textContent = cur ? cur.it.label : '';
-    if (n !== null) btn.querySelector('.cn').textContent = n;
+    setText(curEl, cur ? cur.it.label : '');
+    if (cnEl) setText(cnEl, count(v));
     for (const [val, { el }] of byValue) {
       const on = val === v;
-      el.setAttribute('aria-checked', String(on));
-      el.classList.toggle('on', on);
-      if (count) el.querySelector('.ddn').textContent = count(val);
+      if (el.classList.contains('on') !== on) {
+        el.setAttribute('aria-checked', String(on));
+        el.classList.toggle('on', on);
+      }
+      if (count) setText(el.querySelector('.ddn'), count(val));
     }
-    for (const [el, label] of headers) el.textContent = typeof label === 'function' ? label() : label;
+    for (const [el, label] of headers) setText(el, typeof label === 'function' ? label() : label);
   }
 
   function show() {

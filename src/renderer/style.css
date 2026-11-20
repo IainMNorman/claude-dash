@@ -142,3 +142,13 @@ body.drawer-open:not(.drawer-pinned) aside{display:flex}
 .row{min-height:30px}
 .row .rt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row.kid .rt{padding-left:10px}
+
+.grip{cursor:grab;color:var(--mut);margin-right:6px;user-select:none;padding:0 2px}
+.grip:active{cursor:grabbing}
+.card.dragging{opacity:.35}
+.cards.dnd{align-items:stretch;padding-bottom:80px}
+.cards.dnd .col.manual{min-height:160px;border-radius:10px;outline:2px dashed var(--line);outline-offset:4px}
+.cards.dnd .col.over{outline-color:var(--work);background:color-mix(in srgb,var(--work) 5%,transparent)}
+.dropline{height:4px;border-radius:2px;background:var(--work)}
+
+.dd[hidden]{display:none}

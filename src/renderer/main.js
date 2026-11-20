@@ -1,4 +1,5 @@
 import { createMenu } from './menu.js';
+import { neededColumns, foldCols, placeUnplaced, orderFor, dropIndex, columnAt, chooseColumns } from './arrange.js';
 
 if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron');
 
@@ -52,6 +53,7 @@ function visible() {
   const q = query.trim().toLowerCase();
   let list = snap.sessions.filter(filters[filterBy] || filters.live);
   if (q) list = list.filter((s) => `${s.project} ${s.title} ${s.cwd} ${s.git ? s.git.branch + ' ' + s.git.repo : ''} ${s.prompt} ${s.toolDetail}`.toLowerCase().includes(q));
+  if (sortBy === 'manual') return list;
   const fn = sorters[sortBy];
   if (fn) list = [...list].sort(fn);
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned));
@@ -150,7 +152,7 @@ function card(s, now) {
   return `
     <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
       <div class="top">
-        <span class="proj">${s.pinned ? '📌 ' : ''}${esc(s.title || s.project)}</span>
+        <span class="proj">${sortBy === 'manual' ? '<span class="grip" draggable="true" title="Drag to move">⠿</span>' : ''}${s.pinned ? '📌 ' : ''}${esc(s.title || s.project)}</span>
         <span class="badge">${badge} · ${dur(now - s.stateSince)}</span>
       </div>
       <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
@@ -182,6 +184,8 @@ function render() {
   document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
   filterMenu.refresh();
   sortMenu.refresh();
+  colsMenu.refresh();
+  $('colsDd').hidden = sortBy !== 'manual';
   const list = visible();
   drawCards(list, now, 0);
   $('feed').innerHTML = snap.feed.map((f) => `
@@ -211,6 +215,16 @@ const filterMenu = createMenu($('filterDd'), {
     { label: 'Everything', items: [{ value: 'all', label: 'All sessions' }] },
   ],
 });
+let colsPref = store.get('dash.cols', 'auto');
+const colsMenu = createMenu($('colsDd'), {
+  prefix: 'Columns',
+  getValue: () => colsPref,
+  onSelect: (v) => { colsPref = v; store.set('dash.cols', v); render(); },
+  groups: [{ items: [
+    { value: 'auto', label: 'Auto (fit width, one spare)' },
+    ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} column${n > 1 ? 's' : ''}` })),
+  ] }],
+});
 const sortMenu = createMenu($('sortDd'), {
   prefix: 'Sort',
   getValue: () => sortBy,
@@ -222,6 +236,7 @@ const sortMenu = createMenu($('sortDd'), {
     { value: 'state', label: 'Longest in state' },
     { value: 'tools', label: 'Most tools' },
     { value: 'started', label: 'Newest session' },
+    { value: 'manual', label: 'Manual (drag ⠿ to arrange)' },
   ] }],
 });
 $('q').oninput = (e) => { query = e.target.value; render(); };
@@ -270,8 +285,9 @@ const CARD_MAX = 800;
 const GAP = 12;
 const heights = new Map();
 let lastW = 0;
+let layoutMemo = null;
 
-function layout(list) {
+function autoLayout(list) {
   const el = $('cards');
   const w = el.clientWidth || 0;
   const nMin = Math.max(1, Math.ceil((w + GAP) / (CARD_MAX + GAP)));
@@ -280,8 +296,9 @@ function layout(list) {
   const H = Math.max(320, window.innerHeight - top - 20);
   const hs = list.map((s) => heights.get(s.id) || 220);
   const total = hs.reduce((a, h) => a + h + GAP, 0);
-  let n = nMax;
-  for (let k = nMin; k <= nMax; k++) if (total <= k * H) { n = k; break; }
+  const chosen = chooseColumns({ nMin, nMax, total, H, w, memo: layoutMemo, now: Date.now() });
+  layoutMemo = chosen.memo;
+  const n = chosen.n;
   const cols = Array.from({ length: n }, () => []);
   let c = 0;
   let used = 0;
@@ -293,17 +310,110 @@ function layout(list) {
   return cols;
 }
 
+const pending = {};
+let drag = null;
+const postLayout = (updates) => {
+  if (updates.length) fetch('/api/layout', { method: 'POST', body: JSON.stringify({ updates }) }).catch(() => {});
+};
+
+function widthRange() {
+  const w = $('cards').clientWidth || 0;
+  const nMin = Math.max(1, Math.ceil((w + GAP) / (CARD_MAX + GAP)));
+  return { nMin, nMax: Math.max(nMin, Math.floor((w + GAP) / (CARD_MIN + GAP))) };
+}
+
+function drawManual(list, now) {
+  const layout = { ...(snap.layout || {}), ...pending };
+  const { nMin, nMax } = widthRange();
+  if (list.every((s) => !layout[s.id])) {
+    const ups = [];
+    autoLayout(list).forEach((col, ci) => col.forEach((s, i) => {
+      layout[s.id] = { col: ci, order: i };
+      ups.push({ id: s.id, col: ci, order: i });
+    }));
+    for (const u of ups) pending[u.id] = { col: u.col, order: u.order };
+    postLayout(ups);
+  }
+  const n = colsPref !== 'auto' && Number(colsPref) > 0 ? Number(colsPref) : Math.min(nMax, Math.max(nMin, neededColumns(list, layout) + 1));
+  const { cols, unplaced } = foldCols(list, layout, n);
+  if (unplaced.length) {
+    const ups = placeUnplaced(cols, unplaced, layout);
+    for (const u of ups) pending[u.id] = { col: u.col, order: u.order };
+    postLayout(ups);
+  }
+  $('cards').innerHTML = cols.map((col, i) => `<div class="col manual" data-col="${i}">${col.map((s) => card(s, now)).join('')}</div>`).join('');
+}
+
+function dropTarget(x, y) {
+  const colEls = [...$('cards').querySelectorAll('.col')];
+  const col = columnAt(colEls.map((c) => c.getBoundingClientRect()), x);
+  const cardEls = [...colEls[col].querySelectorAll(':scope > .card')].filter((c) => c.dataset.id !== drag.id);
+  const mids = cardEls.map((c) => { const r = c.getBoundingClientRect(); return r.top + r.height / 2; });
+  return { col, idx: dropIndex(mids, y), ids: cardEls.map((c) => c.dataset.id), colEl: colEls[col], cardEls };
+}
+
+function showDrop(x, y) {
+  const t = dropTarget(x, y);
+  $('cards').querySelectorAll('.dropline').forEach((d) => d.remove());
+  $('cards').querySelectorAll('.col.over').forEach((c) => c.classList.remove('over'));
+  t.colEl.classList.add('over');
+  const line = document.createElement('div');
+  line.className = 'dropline';
+  t.colEl.insertBefore(line, t.cardEls[t.idx] || null);
+}
+
+function endDrag() {
+  drag = null;
+  $('cards').classList.remove('dnd');
+  render();
+}
+
+$('cards').addEventListener('dragstart', (e) => {
+  const grip = e.target.closest && e.target.closest('.grip');
+  if (!grip) return;
+  const cardEl = grip.closest('.card');
+  drag = { id: cardEl.dataset.id };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', drag.id);
+  e.dataTransfer.setDragImage(cardEl, 24, 16);
+  $('cards').classList.add('dnd');
+  requestAnimationFrame(() => cardEl.classList.add('dragging'));
+});
+$('cards').addEventListener('dragover', (e) => {
+  if (drag) { e.preventDefault(); showDrop(e.clientX, e.clientY); }
+});
+$('cards').addEventListener('drop', (e) => {
+  if (!drag) return;
+  e.preventDefault();
+  const t = dropTarget(e.clientX, e.clientY);
+  const layout = { ...(snap.layout || {}), ...pending };
+  const order = orderFor(t.ids, t.idx, layout);
+  pending[drag.id] = { col: t.col, order };
+  postLayout([{ id: drag.id, col: t.col, order }]);
+  endDrag();
+});
+$('cards').addEventListener('dragend', () => { if (drag) endDrag(); });
+
+let pressing = false;
+const onDown = () => { pressing = true; };
+const onUp = () => setTimeout(() => { pressing = false; render(); }, 80);
+document.addEventListener('pointerdown', onDown, true);
+document.addEventListener('pointerup', onUp, true);
+document.addEventListener('pointercancel', onUp, true);
+
 function drawCards(list, now, depth) {
+  if (drag || pressing) return;
+  if (sortBy === 'manual' && list.length) return drawManual(list, now);
   if (!list.length) {
     $('cards').innerHTML = `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
     return;
   }
-  const cols = layout(list);
+  const cols = autoLayout(list);
   $('cards').innerHTML = cols.map((col) => `<div class="col">${col.map((s) => card(s, now)).join('')}</div>`).join('');
   for (const el of $('cards').querySelectorAll('.card')) heights.set(el.dataset.id, el.getBoundingClientRect().height);
   if (depth < 2) {
     const sig = (cs) => cs.map((col) => col.map((s) => s.id).join(',')).join('|');
-    if (sig(layout(list)) !== sig(cols)) drawCards(list, now, depth + 1);
+    if (sig(autoLayout(list)) !== sig(cols)) drawCards(list, now, depth + 1);
   }
 }
 
@@ -320,13 +430,20 @@ let timer;
 function connect() {
   es = new EventSource('/api/stream');
   es.onopen = () => { $('conn').textContent = 'live'; };
-  es.onmessage = (m) => { snap = JSON.parse(m.data); render(); };
+  es.onmessage = (m) => {
+    snap = JSON.parse(m.data);
+    for (const [id, p] of Object.entries(pending)) {
+      const l = (snap.layout || {})[id];
+      if (l && l.col === p.col && l.order === p.order) delete pending[id];
+    }
+    render();
+  };
   es.onerror = () => { $('conn').textContent = 'reconnecting…'; };
 }
 connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { ro.disconnect(); window.removeEventListener('resize', onResize); filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
-  import.meta.hot.accept();
+  import.meta.hot.dispose(() => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('pointerup', onUp, true); document.removeEventListener('pointercancel', onUp, true); ro.disconnect(); window.removeEventListener('resize', onResize); filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
+
 }

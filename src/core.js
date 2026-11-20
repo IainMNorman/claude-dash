@@ -51,6 +51,7 @@ class Store {
     this.now = now;
     this.listeners = new Set();
     this.resolver = null;
+    this.layout = {};
     this.stuckMs = 3 * 60 * 1000;
   }
 
@@ -217,6 +218,22 @@ class Store {
     return changed;
   }
 
+  setLayout(updates) {
+    let changed = false;
+    for (const u of Array.isArray(updates) ? updates : []) {
+      if (!u || typeof u.id !== 'string' || !this.sessions.has(u.id)) continue;
+      const col = Number(u.col);
+      const order = Number(u.order);
+      if (!Number.isInteger(col) || col < 0 || col > 24 || !Number.isFinite(order)) continue;
+      const cur = this.layout[u.id];
+      if (cur && cur.col === col && cur.order === order) continue;
+      this.layout[u.id] = { col, order };
+      changed = true;
+    }
+    if (changed) for (const fn of this.listeners) fn();
+    return changed;
+  }
+
   setFlag(id, flag, value) {
     const s = this.sessions.get(id);
     if (!s || (flag !== 'pinned' && flag !== 'dismissed')) return false;
@@ -226,13 +243,14 @@ class Store {
   }
 
   dump() {
-    return { version: 1, sessions: [...this.sessions.values()], feed: this.feed };
+    return { version: 1, sessions: [...this.sessions.values()], feed: this.feed, layout: this.layout };
   }
 
   hydrate(data) {
     if (!data || data.version !== 1) return;
     for (const s of data.sessions || []) if (s && s.id) this.sessions.set(s.id, normalise(s));
     this.feed = (data.feed || []).slice(-this.feedSize);
+    this.layout = data.layout && typeof data.layout === 'object' ? { ...data.layout } : {};
   }
 
   snapshot() {
@@ -251,7 +269,7 @@ class Store {
       usd: live.reduce((a, s) => a + ((s.cost && s.cost.usd) || 0), 0),
       active: live.filter((s) => s.cost && s.cost.perHour > 0).length,
     };
-    return { now: t, sessions, global, feed: this.feed.slice(-100).reverse() };
+    return { now: t, sessions, global, layout: this.layout, feed: this.feed.slice(-100).reverse() };
   }
 
   prune(maxAgeMs = 24 * 3600 * 1000) {
