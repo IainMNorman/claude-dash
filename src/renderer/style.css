@@ -296,3 +296,5 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .act{gap:4px;align-items:center;line-height:1}
 .act .ico,.act.quiet .ico{width:14px;height:14px;margin:0;vertical-align:0;flex:none}
 .act .adot{margin:0 1px}
+main h2 .dd:first-of-type{margin-left:0}
+.fico{margin-left:auto}

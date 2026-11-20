@@ -10,7 +10,7 @@ $('drawerBtn').innerHTML = icon('list') + 'Activity';
 $('pinBtn').innerHTML = icon('pin');
 $('closeBtn').innerHTML = icon('x');
 $('q').insertAdjacentHTML('beforebegin', icon('search', 'qico'));
-$('filterDd').insertAdjacentHTML('beforebegin', icon('filter', 'ddico'));
+$('filterDd').insertAdjacentHTML('beforebegin', icon('filter', 'ddico fico'));
 $('sortDd').insertAdjacentHTML('beforebegin', icon('sort', 'ddico'));
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const PREF_KEYS = { 'dash.sort': 'sort', 'dash.filter': 'filter', 'dash.cols': 'cols', 'dash.drawer': 'drawer', 'dash.pinned': 'pinned' };
