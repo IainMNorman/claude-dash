@@ -95,7 +95,9 @@ class Store {
       case 'SessionStart':
         set('idle'); break;
       case 'UserPromptSubmit':
-        set('working'); s.prompt = String(ev.prompt || '').slice(0, 200); s.message = ''; break;
+        set('working');
+        if (!/^\s*<(agent-message|task-notification|system-reminder|command-)/.test(String(ev.prompt || ''))) s.prompt = String(ev.prompt || '').slice(0, 200);
+        s.message = ''; break;
       case 'PreToolUse': {
         set('working'); s.message = '';
         const d = detail(ev.tool_name, ev.tool_input);

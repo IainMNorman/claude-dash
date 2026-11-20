@@ -119,8 +119,7 @@ function tokenBlock(tk, c) {
     </div>
     <div class="tleg">
       <span><i class="tcr"></i>cache read ${num(tk.cacheRead)} <b>${hit}% hit</b></span>
-      <span><i class="tcw"></i>cache write ${num(tk.cacheWrite)}</span>
-      <span><i class="tin"></i>new in ${num(tk.input)}</span>
+      <span title="cache write ${num(tk.cacheWrite)} · new input ${num(tk.input)}"><i class="tin"></i>new ${num(tk.input + tk.cacheWrite)}</span>
       <span><i class="tout"></i>out ${num(tk.output)}</span>
     </div>
     <div class="ctx ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}">
@@ -158,6 +157,8 @@ function gitLine(g) {
   return `<div class="git mut">${icon('branch')}<b>${esc(g.branch || 'detached')}</b>${g.worktree ? ` <span class="wt">worktree ${esc(g.worktreeName)}</span>` : ''} · ${esc(g.repo)} · <span class="${g.changed || g.untracked ? 'dirty' : ''}">${state}</span></div>`;
 }
 
+const shortPath = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
+
 function card(s, now) {
   const kids = s.children || [];
   const active = kids.filter((c) => c.status !== 'done' && c.kind !== 'shell');
@@ -171,7 +172,7 @@ function card(s, now) {
         <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
         <span class="badge">${icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}${badge} · ${dur(now - s.stateSince)}</span>
       </div>
-      <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
+      <div class="mut" title="${esc(s.cwd)}">${esc(shortPath(s.cwd))} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
       ${gitLine(s.git)}
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
@@ -270,8 +271,21 @@ $('cards').addEventListener('click', (e) => {
   const s = snap.sessions.find((x) => x.id === id);
   if (el.dataset.act === 'open') return;
   const flag = el.dataset.act === 'pin' ? 'pinned' : 'dismissed';
-  fetch('/api/session', { method: 'POST', body: JSON.stringify({ id, flag, value: !s[flag] }) });
+  const post = (value) => fetch('/api/session', { method: 'POST', body: JSON.stringify({ id, flag, value }) });
+  post(!s[flag]);
+  if (flag === 'dismissed' && !s.dismissed) toast(`Dismissed ${s.title || s.project}`, () => post(false));
 });
+
+let toastTimer;
+function toast(text, undo) {
+  const el = $('toast');
+  el.innerHTML = `<span></span><button type="button">Undo</button>`;
+  el.firstChild.textContent = text;
+  el.lastChild.onclick = () => { undo(); el.hidden = true; };
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 7000);
+}
 
 let drawerOpen = store.get('dash.drawer', 'open') === 'open';
 let drawerPinned = store.get('dash.pinned', 'pinned') === 'pinned';

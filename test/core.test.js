@@ -129,3 +129,12 @@ test('persist: state survives restart; ended sessions older than a day pruned', 
   fs.writeFileSync(file, '{bad');
   assert.equal(load(new Store(), file), false);
 });
+
+test('agent/notification pseudo-prompts do not overwrite the last real prompt', () => {
+  const { Store } = require('../src/core');
+  const st = new Store();
+  st.ingest({ hook_event_name: 'UserPromptSubmit', session_id: 'p1', cwd: '/x', prompt: 'real ask' });
+  st.ingest({ hook_event_name: 'UserPromptSubmit', session_id: 'p1', cwd: '/x', prompt: '<agent-message from="a">hand-back</agent-message>' });
+  st.ingest({ hook_event_name: 'UserPromptSubmit', session_id: 'p1', cwd: '/x', prompt: '<task-notification><task-id>1</task-id></task-notification>' });
+  assert.equal(st.sessions.get('p1').prompt, 'real ask');
+});

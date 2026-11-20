@@ -2,8 +2,8 @@
 @font-face{font-family:'Anthropic Sans';src:url(/fonts/AnthropicSans-Italics-Variable-25x258.ttf);font-weight:100 900;font-style:italic}
 @font-face{font-family:'Anthropic Serif';src:url(/fonts/AnthropicSerif-Romans-Variable-25x258.ttf);font-weight:100 900}
 
-:root{--bg:#1f1f1e;--panel:#2b2b29;--line:rgba(255,255,255,.09);--fg:#ececea;--mut:#a09f98;--work:#6ea0d6;--wait:#e0805f;--idle:#8fb078;--stale:#77766f;--end:#55544f;--accent:#d97757;--hover:rgba(255,255,255,.07)}
-@media (prefers-color-scheme: light){:root{--bg:#fff;--panel:#f4f3ee;--line:rgba(0,0,0,.09);--fg:#1c1c1b;--mut:#6f6e68;--work:#3f7cc0;--wait:#c6613f;--idle:#5f8a45;--stale:#a5a49b;--end:#c9c8c0;--hover:rgba(0,0,0,.055)}}
+:root{--bg:#1f1f1e;--panel:#2b2b29;--line:rgba(255,255,255,.09);--fg:#ececea;--mut:#b3b2aa;--work:#6ea0d6;--wait:#e0805f;--idle:#8fb078;--stale:#77766f;--end:#55544f;--accent:#d97757;--hover:rgba(255,255,255,.07)}
+@media (prefers-color-scheme: light){:root{--bg:#fff;--panel:#f4f3ee;--line:rgba(0,0,0,.09);--fg:#1c1c1b;--mut:#5c5b55;--work:#3f7cc0;--wait:#c6613f;--idle:#5f8a45;--stale:#a5a49b;--end:#c9c8c0;--hover:rgba(0,0,0,.055)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 'Anthropic Sans',-apple-system,system-ui,sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
@@ -237,3 +237,8 @@ body{font-size:14px}
 .dditem .ddn{font-size:13px}
 .ddbtn{border-radius:8px;font-size:13px;padding:5px 10px}
 .ddbtn[aria-expanded=true]{background:var(--hover)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;display:flex;gap:14px;align-items:center;background:var(--fg);color:var(--bg);padding:9px 10px 9px 16px;border-radius:12px;font-size:13px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.toast[hidden]{display:none}
+.toast button{font:inherit;font-weight:500;color:var(--bg);background:color-mix(in srgb,var(--bg) 18%,transparent);border:0;border-radius:8px;padding:3px 10px;cursor:pointer}
+.tleg,.ctx,.cb,.badge,.mut{font-size:12.5px}
+.ctype{font-size:11px}
