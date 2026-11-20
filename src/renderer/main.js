@@ -183,12 +183,7 @@ function render() {
   filterMenu.refresh();
   sortMenu.refresh();
   const list = visible();
-  cardCount = list.length;
-  const ncol = fitColumns();
-  renderedCols = ncol;
-  const per = Math.max(1, Math.ceil(list.length / ncol));
-  const columns = Array.from({ length: ncol }, (_, i) => `<div class="col">${list.slice(i * per, (i + 1) * per).map((s) => card(s, now)).join('')}</div>`).join('');
-  $('cards').innerHTML = list.length ? columns : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
+  drawCards(list, now, 0);
   $('feed').innerHTML = snap.feed.map((f) => `
     <div class="row${f.child ? ' kid' : ''}"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
     <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' ? f.text : f.event + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
@@ -273,25 +268,52 @@ applyDrawer();
 const CARD_MIN = 360;
 const CARD_MAX = 560;
 const GAP = 12;
-let cardCount = 0;
-let lastCols = 1;
-let renderedCols = 0;
-function fitColumns() {
-  const w = $('cards').clientWidth;
-  if (!w) return lastCols;
+const heights = new Map();
+let lastW = 0;
+
+function layout(list) {
+  const el = $('cards');
+  const w = el.clientWidth || 0;
   const nMin = Math.max(1, Math.ceil((w + GAP) / (CARD_MAX + GAP)));
   const nMax = Math.max(nMin, Math.floor((w + GAP) / (CARD_MIN + GAP)));
-  let best = nMin;
-  let bestWaste = Infinity;
-  for (let n = nMin; n <= nMax; n++) {
-    const waste = cardCount ? (n - (cardCount % n)) % n : 0;
-    if (waste < bestWaste) { best = n; bestWaste = waste; }
-  }
-  lastCols = best;
-  return best;
+  const top = el.getBoundingClientRect().top + window.scrollY;
+  const H = Math.max(320, window.innerHeight - top - 20);
+  const hs = list.map((s) => heights.get(s.id) || 220);
+  const total = hs.reduce((a, h) => a + h + GAP, 0);
+  let n = nMax;
+  for (let k = nMin; k <= nMax; k++) if (total <= k * H) { n = k; break; }
+  const cols = Array.from({ length: n }, () => []);
+  let c = 0;
+  let used = 0;
+  list.forEach((s, i) => {
+    if (used > 0 && used + hs[i] > H && c < n - 1) { c++; used = 0; }
+    cols[c].push(s);
+    used += hs[i] + GAP;
+  });
+  return cols;
 }
-const ro = new ResizeObserver(() => { if (fitColumns() !== renderedCols) render(); });
+
+function drawCards(list, now, depth) {
+  if (!list.length) {
+    $('cards').innerHTML = `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
+    return;
+  }
+  const cols = layout(list);
+  $('cards').innerHTML = cols.map((col) => `<div class="col">${col.map((s) => card(s, now)).join('')}</div>`).join('');
+  for (const el of $('cards').querySelectorAll('.card')) heights.set(el.dataset.id, el.getBoundingClientRect().height);
+  if (depth < 2) {
+    const sig = (cs) => cs.map((col) => col.map((s) => s.id).join(',')).join('|');
+    if (sig(layout(list)) !== sig(cols)) drawCards(list, now, depth + 1);
+  }
+}
+
+const ro = new ResizeObserver(() => {
+  const w = $('cards').clientWidth;
+  if (w !== lastW) { lastW = w; render(); }
+});
 ro.observe($('cards'));
+const onResize = () => render();
+window.addEventListener('resize', onResize);
 
 let es;
 let timer;
@@ -305,6 +327,6 @@ connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { ro.disconnect(); filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
+  import.meta.hot.dispose(() => { ro.disconnect(); window.removeEventListener('resize', onResize); filterMenu.destroy(); sortMenu.destroy(); es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
   import.meta.hot.accept();
 }
