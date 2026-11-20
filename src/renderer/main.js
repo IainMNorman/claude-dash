@@ -35,7 +35,6 @@ const live = (s) => !s.dismissed;
 const filters = {
   live: (s) => live(s) && s.displayState !== 'ended',
   waiting: (s) => live(s) && s.displayState === 'waiting',
-  idle: (s) => live(s) && s.displayState === 'idle',
   working: (s) => live(s) && s.displayState === 'working',
   stuck: (s) => live(s) && s.stuck,
   stale: (s) => live(s) && s.displayState === 'stale',
@@ -110,7 +109,6 @@ function render() {
   const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
   $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
   document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
-  renderChips();
   const list = visible();
   $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
@@ -120,35 +118,8 @@ function render() {
 
 $('sort').value = sortBy;
 $('sort').onchange = (e) => { sortBy = e.target.value; store.set('dash.sort', sortBy); render(); };
-function chip(key, label, n, cls = '', title = '') {
-  return `<button type="button" class="chip ${cls}${filterBy === key ? ' active' : ''}" data-filter="${key}"${title ? ` title="${esc(title)}"` : ''}><span class="cdot"></span>${label} <b>${n}</b></button>`;
-}
-function renderChips() {
-  const n = (k) => snap.sessions.filter(filters[k]).length;
-  const live = n('live');
-  const parts = [['waiting', n('waiting')], ['working', n('working')], ['idle', n('idle')], ['stale', n('stale')]];
-  const bar = live ? parts.map(([k, v]) => `<i class="seg ${k}" style="flex:${v}"></i>`).join('') : '';
-  $('chips').innerHTML = `
-    <div class="grp"><div class="grow">
-      ${chip('live', 'Live', live, 'live', 'Everything not ended or dismissed: the states to its right add up to this')}
-      <span class="sep">=</span>
-      ${chip('waiting', 'Waiting', parts[0][1], 'waiting')}
-      ${chip('working', 'Working', parts[1][1], 'working')}
-      ${chip('idle', 'Idle', parts[2][1], 'idle')}
-      ${chip('stale', 'Stale', parts[3][1], 'stale')}
-      ${chip('stuck', 'Quiet?', n('stuck'), 'stuck sub', 'Subset of Working: no events for 3+ minutes')}
-    </div><div class="bar">${bar}</div></div>
-    ${chip('ended', 'Ended', n('ended'), 'ended')}
-    ${chip('dismissed', 'Dismissed', n('dismissed'), 'dismissed')}
-    ${chip('all', 'All', snap.sessions.length, 'all')}`;
-}
-$('chips').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-filter]');
-  if (!b) return;
-  filterBy = b.dataset.filter;
-  store.set('dash.filter', filterBy);
-  render();
-});
+$('filter').value = filterBy;
+$('filter').onchange = (e) => { filterBy = e.target.value; store.set('dash.filter', filterBy); render(); };
 $('q').oninput = (e) => { query = e.target.value; render(); };
 
 $('cards').addEventListener('toggle', (e) => {
