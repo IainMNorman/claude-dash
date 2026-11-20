@@ -122,7 +122,7 @@ function tokenBlock(tk, c) {
     <div class="tile tk" tabindex="0"><small>Tokens</small><span class="tv">${num(total)}</span><small class="ts">${hit}% cached</small>
       <div class="tbar">${seg('tcr', tk.cacheRead)}${seg('tcw', tk.cacheWrite)}${seg('tin', tk.input)}${seg('tout', tk.output)}</div>
       <div class="pop">${row('tcr', 'Cache read', tk.cacheRead)}${row('tcw', 'Cache write', tk.cacheWrite)}${row('tin', 'New input', tk.input)}${row('tout', 'Output', tk.output)}</div></div>
-    <div class="tile ctx ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}"><small>Context</small><span class="tv">${ctx}%</span><small class="ts">${num(tk.context)}</small><div class="cbar"><i style="width:${ctx}%"></i></div></div>
+    <div class="tile cxt ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}"><small>Context</small><span class="tv">${ctx}%</span><small class="ts">${num(tk.context)}</small><div class="cbar"><i style="width:${ctx}%"></i></div></div>
   </div>`;
 }
 
