@@ -261,3 +261,6 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .costbar .cost{flex:none;white-space:nowrap}
 .costbar .tbar{flex:1;min-width:60px}
 .sdot{width:8px;height:8px;border-radius:50%;background:var(--work);flex:none;margin:0 2px 0 1px}
+.tbar,.cbar{height:10px;border-radius:5px}
+.tbar i+i{margin-left:1px}
+.ctx{gap:10px}

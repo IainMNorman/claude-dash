@@ -38,7 +38,7 @@ function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTra
   };
   store.resolver = (s) => {
     const d = desktop.lookup(s.id);
-    return { title: d ? d.title : '', link: d ? d.link : '', tokens: tokens.get(s.transcript), cost: costs.get(s.id) || null, git: git.get(s.cwd) };
+    return { title: d ? d.title : '', link: d ? d.link : '', model: (d && d.model) || (tokens.get(s.transcript) || {}).model || '', effort: d ? d.effort : '', tokens: tokens.get(s.transcript), cost: costs.get(s.id) || null, git: git.get(s.cwd) };
   };
   const refresh = () => {
     const cwds = new Set();

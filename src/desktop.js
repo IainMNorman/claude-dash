@@ -32,7 +32,7 @@ function createDesktopIndex({ dir = DIR, ttlMs = 10000 } = {}) {
       mtimes.set(f, m);
       try {
         const j = JSON.parse(fs.readFileSync(f, 'utf8'));
-        if (j.cliSessionId && j.sessionId) byCli.set(j.cliSessionId, { desktopId: j.sessionId, title: j.title || '' });
+        if (j.cliSessionId && j.sessionId) byCli.set(j.cliSessionId, { desktopId: j.sessionId, title: j.title || '', model: j.model || '', effort: j.effort || '' });
       } catch { /* skip unreadable */ }
     }
   }
@@ -42,7 +42,7 @@ function createDesktopIndex({ dir = DIR, ttlMs = 10000 } = {}) {
       refresh();
       const d = byCli.get(cliId);
       if (!d) return null;
-      return { title: d.title, link: `claude://code/continue?session=${d.desktopId}` };
+      return { title: d.title, model: d.model, effort: d.effort, link: `claude://code/continue?session=${d.desktopId}` };
     },
   };
 }

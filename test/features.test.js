@@ -118,10 +118,10 @@ test('tokens: incremental, dedupes message ids, tolerates partial last line', ()
 test('desktop index maps cliSessionId to title and claude:// link', () => {
   const dir = tmp();
   fs.mkdirSync(path.join(dir, 'a', 'b'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'a', 'b', 'local_abc-1.json'), JSON.stringify({ sessionId: 'local_abc-1', cliSessionId: 'cli-9', title: 'My thread' }));
+  fs.writeFileSync(path.join(dir, 'a', 'b', 'local_abc-1.json'), JSON.stringify({ sessionId: 'local_abc-1', cliSessionId: 'cli-9', title: 'My thread', model: 'claude-opus-5-5', effort: 'high' }));
   fs.writeFileSync(path.join(dir, 'a', 'b', 'local_bad.json'), '{nope');
   const idx = createDesktopIndex({ dir, ttlMs: 0 });
-  assert.deepEqual(idx.lookup('cli-9'), { title: 'My thread', link: 'claude://code/continue?session=local_abc-1' });
+  assert.deepEqual(idx.lookup('cli-9'), { title: 'My thread', model: 'claude-opus-5-5', effort: 'high', link: 'claude://code/continue?session=local_abc-1' });
   assert.equal(idx.lookup('unknown'), null);
   assert.equal(createDesktopIndex({ dir: path.join(dir, 'missing') }).lookup('x'), null);
 });
@@ -376,4 +376,15 @@ test('without an authoritative disk listing nothing is dropped', () => {
   tick(10 * 60000);
   store.syncChildren('s1', []);
   assert.equal(store.sessions.get('s1').children.length, 1);
+});
+
+test('scanner reports the subagent model from its transcript', () => {
+  const dir = tmp();
+  const transcript = path.join(dir, 's1.jsonl');
+  const sub = path.join(dir, 's1', 'subagents');
+  fs.mkdirSync(sub, { recursive: true });
+  fs.writeFileSync(path.join(sub, 'agent-a1.meta.json'), JSON.stringify({ description: 'd', agentType: 'Explore' }));
+  fs.writeFileSync(path.join(sub, 'agent-a1.jsonl'), '{"type":"assistant","message":{"model":"claude-haiku-5-5","usage":{}}}\n');
+  const out = createSubagentScanner().scan(transcript);
+  assert.equal(out[0].model, 'claude-haiku-5-5');
 });

@@ -6,8 +6,22 @@ function subagentsDir(transcript) {
   return path.join(transcript.slice(0, -'.jsonl'.length), 'subagents');
 }
 
+function modelOf(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, 'r');
+    const size = fs.fstatSync(fd).size;
+    const len = Math.min(size, 262144);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, size - len);
+    const all = [...buf.toString('utf8').matchAll(/"model":"([^"]+)"/g)];
+    return all.length ? all[all.length - 1][1] : '';
+  } catch { return ''; } finally { if (fd !== undefined) try { fs.closeSync(fd); } catch { /* ignore */ } }
+}
+
 function createSubagentScanner({ activeMs = 15 * 60 * 1000, lookbackMs = 24 * 3600 * 1000, now = Date.now } = {}) {
   const metaCache = new Map();
+  const modelCache = new Map();
 
   function scan(transcript) {
     const dir = subagentsDir(transcript);
@@ -36,8 +50,11 @@ function createSubagentScanner({ activeMs = 15 * 60 * 1000, lookbackMs = 24 * 36
       const meta = cached.meta;
       const finished = !!meta.finished;
       if (!finished && t - last > activeMs) continue;
+      let model = modelCache.get(jsonl);
+      if (!model && js) { model = modelOf(jsonl); if (model) modelCache.set(jsonl, model); }
       out.push({
         id: m[1],
+        model: model || '',
         toolUseId: meta.toolUseId || null,
         desc: String(meta.description || '').slice(0, 120),
         type: meta.agentType || '',

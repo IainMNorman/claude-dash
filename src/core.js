@@ -200,7 +200,7 @@ class Store {
       if (!c) {
         const recent = f.endedAt && t - f.endedAt < 30 * 60 * 1000;
         if (f.status === 'running' || recent) {
-          s.children.push({ kind: 'subagent', id: f.id, toolUseId: f.toolUseId, desc: f.desc, type: f.type, status: f.status, startedAt: f.startedAt || t, endedAt: f.endedAt || undefined, lastEvent: t, tool: null, toolDetail: '' });
+          s.children.push({ kind: 'subagent', id: f.id, toolUseId: f.toolUseId, desc: f.desc, type: f.type, model: f.model || '', status: f.status, startedAt: f.startedAt || t, endedAt: f.endedAt || undefined, lastEvent: t, tool: null, toolDetail: '' });
           changed = true;
         }
         continue;
@@ -208,6 +208,7 @@ class Store {
       if (!c.id && f.id) { c.id = f.id; changed = true; }
       if (!c.desc && f.desc) { c.desc = f.desc; changed = true; }
       if (!c.type && f.type) { c.type = f.type; changed = true; }
+      if (f.model && c.model !== f.model) { c.model = f.model; changed = true; }
       if (c.status !== 'done' && f.status === 'done') { c.status = 'done'; c.endedAt = f.endedAt || t; c.tool = null; c.toolDetail = ''; changed = true; }
     }
     if (authoritative) {

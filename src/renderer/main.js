@@ -81,7 +81,7 @@ function childRow(c, now) {
   const label = c.status === 'waiting' ? 'needs you' : c.status;
   const showType = !shell && c.type && c.type !== 'general-purpose';
   const title = icon(shell ? 'terminal' : 'bot') + (shell ? `<span class="sh">${esc(c.desc || 'shell')}</span>` : esc(c.desc || (showType ? c.type : 'subagent')));
-  const badge = showType && c.desc ? ` <span class="ctype">${esc(c.type)}</span>` : shell ? ' <span class="ctype">shell</span>' : '';
+  const badge = (showType && c.desc ? ` <span class="ctype">${esc(c.type)}</span>` : shell ? ' <span class="ctype">shell</span>' : '') + (shell ? '' : modelTag(c.model));
   return `<div class="child ${c.status} ${shell ? 'shell' : ''}">
     <div class="ctop"><span class="ct">${title}${badge}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
     ${c.status === 'waiting' ? `<div class="cmsg">${esc(c.message || 'Needs your input')}</div>` : ''}
@@ -159,6 +159,15 @@ function gitLine(g) {
   return `<div class="git mut">${icon('branch')}<b>${esc(g.branch || 'detached')}</b>${g.worktree ? ` <span class="wt">worktree ${esc(g.worktreeName)}</span>` : ''} · ${esc(g.repo)} · <span class="${g.changed || g.untracked ? 'dirty' : ''}">${state}</span></div>`;
 }
 
+const modelName = (m) => {
+  const x = String(m || '').toLowerCase().replace(/^claude-/, '').replace(/\[.*\]$/, '');
+  const a = x.match(/^(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d{1,2}))?(?:-|$)/);
+  if (a) return `${a[1][0].toUpperCase()}${a[1].slice(1)} ${a[2]}${a[3] ? '.' + a[3] : ''}`;
+  const b = x.match(/^(\d+)(?:-(\d))?-(opus|sonnet|haiku)/);
+  if (b) return `${b[3][0].toUpperCase()}${b[3].slice(1)} ${b[1]}${b[2] ? '.' + b[2] : ''}`;
+  return x.split('-').slice(0, 2).join(' ');
+};
+const modelTag = (m, effort) => m ? `<span class="ctype model" title="${esc(m)}${effort ? ' · ' + esc(effort) + ' effort' : ''}">${esc(modelName(m))}${effort ? ' · ' + esc(effort) : ''}</span>` : '';
 const shortPath = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 
 function card(s, now) {
@@ -171,7 +180,7 @@ function card(s, now) {
   return `
     <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
       <div class="top">
-        <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
+        <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}${modelTag(s.model, s.effort)}</span>
         <span class="badge">${s.displayState === 'working' ? '<span class="sdot"></span>' : icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}${badge} · ${dur(now - s.stateSince)}</span>
       </div>
       <div class="meta">${gitLine(s.git) || '<div></div>'}<div class="mut path" title="${esc(s.cwd)}"><span>${esc(shortPath(s.cwd))}</span><span class="nw"> · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</span></div></div>
