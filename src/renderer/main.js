@@ -98,10 +98,13 @@ function money(n) {
   if (n < 0.01) return '<$0.01';
   return '$' + (n >= 100 ? Math.round(n) : n.toFixed(2));
 }
+function costTip(c) {
+  const tip = `API list-price equivalent. Rate = last 10 min x6${c.subagents ? `; includes ${c.subagents} subagent transcript${c.subagents > 1 ? 's' : ''} from the last 24h` : ''}${c.unpriced ? `; ${c.unpriced} messages from unpriced models excluded` : ''}`;
+  return esc(tip);
+}
 function costLine(c) {
   if (!c) return '';
-  const tip = `API list-price equivalent. Rate = last 10 min x6${c.subagents ? `; includes ${c.subagents} subagent transcript${c.subagents > 1 ? 's' : ''} from the last 24h` : ''}${c.unpriced ? `; ${c.unpriced} messages from unpriced models excluded` : ''}`;
-  return `<div class="cost" title="${esc(tip)}"><b>≈ ${money(c.perHour)}/h</b><span class="mut">now</span><span class="mut">·</span><b>${money(c.usd)}</b><span class="mut">session</span></div>`;
+  return `<div class="cost" title="${costTip(c)}"><b>≈ ${money(c.perHour)}/h</b><span class="mut">now</span><span class="mut">·</span><b>${money(c.usd)}</b><span class="mut">session</span></div>`;
 }
 function tokenBlock(tk, c) {
   const total = tk.input + tk.cacheWrite + tk.cacheRead + tk.output;
@@ -113,9 +116,9 @@ function tokenBlock(tk, c) {
   const ctx = Math.min(100, Math.round((tk.context / win) * 100));
   const tone = ctx >= 90 ? 'hot' : ctx >= 70 ? 'warm' : '';
   return `<div class="tok">
-    <div class="costbar">${costLine(c)}<div class="tbar" title="Share of all tokens">
+    <div class="costbar" title="${c ? costTip(c) : ''}">${c ? `<span class="cost"><b>≈ ${money(c.perHour)}/h</b><span class="mut">now</span></span>` : ''}<div class="tbar" title="Share of all tokens">
       <i class="tcr" style="width:${pct(tk.cacheRead)}%"></i><i class="tcw" style="width:${pct(tk.cacheWrite)}%"></i><i class="tin" style="width:${pct(tk.input)}%"></i><i class="tout" style="width:${pct(tk.output)}%"></i>
-    </div></div>
+    </div>${c ? `<span class="cost"><b>${money(c.usd)}</b><span class="mut">session</span></span>` : ''}</div>
     <div class="tleg">
       <span><i class="tcr"></i>cache read ${num(tk.cacheRead)} <b>${hit}% hit</b></span>
       <span title="cache write ${num(tk.cacheWrite)} · new input ${num(tk.input)}"><i class="tin"></i>new ${num(tk.input + tk.cacheWrite)}</span>
