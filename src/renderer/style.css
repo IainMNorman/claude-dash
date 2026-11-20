@@ -280,3 +280,7 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .pop i{width:9px;height:9px;border-radius:2px;display:inline-block}
 .badge .ctype{margin-left:4px}
 .badge .need{font-weight:480}
+.proj{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.sico{display:inline-flex;align-items:center;color:var(--c);flex:none}
+.sico .ico{width:15px;height:15px;color:var(--c)}
+.sico .sdot{margin:0 3px}
