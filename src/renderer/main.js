@@ -115,18 +115,14 @@ function tokenBlock(tk, c) {
   const win = contextWindow(tk);
   const ctx = Math.min(100, Math.round((tk.context / win) * 100));
   const tone = ctx >= 90 ? 'hot' : ctx >= 70 ? 'warm' : '';
-  return `<div class="tok">
-    <div class="costbar" title="${c ? costTip(c) : ''}">${c ? `<span class="cost"><b>≈ ${money(c.perHour)}/h</b><span class="mut">now</span></span>` : ''}<div class="tbar" title="Share of all tokens">
-      <i class="tcr" style="width:${pct(tk.cacheRead)}%"></i><i class="tcw" style="width:${pct(tk.cacheWrite)}%"></i><i class="tin" style="width:${pct(tk.input)}%"></i><i class="tout" style="width:${pct(tk.output)}%"></i>
-    </div>${c ? `<span class="cost"><b>${money(c.usd)}</b><span class="mut">session</span></span>` : ''}</div>
-    <div class="tleg">
-      <span><i class="tcr"></i>cache read ${num(tk.cacheRead)} <b>${hit}% hit</b></span>
-      <span title="cache write ${num(tk.cacheWrite)} · new input ${num(tk.input)}"><i class="tin"></i>new ${num(tk.input + tk.cacheWrite)}</span>
-      <span><i class="tout"></i>out ${num(tk.output)}</span>
-    </div>
-    <div class="ctx ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}">
-      <span class="mut">Context</span><div class="cbar"><i style="width:${ctx}%"></i></div><b>${num(tk.context)}</b><span class="mut">${ctx}%</span>
-    </div>
+  const seg = (cls, n) => `<i class="${cls}" style="width:${pct(n)}%"></i>`;
+  const row = (cls, name, n) => `<div><i class="${cls}"></i><span>${name}</span><b>${num(n)}</b></div>`;
+  return `<div class="tiles">
+    <div class="tile" title="${c ? costTip(c) : ''}"><small>Spend</small><span class="tv">${c ? money(c.usd) : '–'}</span><small class="ts">${c ? `≈ ${money(c.perHour)}/h now` : ''}</small><div class="tbar off"></div></div>
+    <div class="tile tk" tabindex="0"><small>Tokens</small><span class="tv">${num(total)}</span><small class="ts">${hit}% cached</small>
+      <div class="tbar">${seg('tcr', tk.cacheRead)}${seg('tcw', tk.cacheWrite)}${seg('tin', tk.input)}${seg('tout', tk.output)}</div>
+      <div class="pop">${row('tcr', 'Cache read', tk.cacheRead)}${row('tcw', 'Cache write', tk.cacheWrite)}${row('tin', 'New input', tk.input)}${row('tout', 'Output', tk.output)}</div></div>
+    <div class="tile ctx ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}"><small>Context</small><span class="tv">${ctx}%</span><small class="ts">${num(tk.context)}</small><div class="cbar"><i style="width:${ctx}%"></i></div></div>
   </div>`;
 }
 
