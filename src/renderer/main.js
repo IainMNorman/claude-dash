@@ -514,7 +514,7 @@ let es;
 let timer;
 function setConn(ok) {
   const el = $('conn');
-  el.textContent = '';
+  el.textContent = ok ? '' : 'Reconnecting…';
   el.className = `conn ${ok ? 'ok' : 'down'}`;
   el.title = ok ? 'Connected: updates stream in live' : 'Reconnecting to the dashboard server…';
 }
