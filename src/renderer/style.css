@@ -260,3 +260,4 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .costbar{display:flex;align-items:center;gap:14px}
 .costbar .cost{flex:none;white-space:nowrap}
 .costbar .tbar{flex:1;min-width:60px}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--work);flex:none;margin:0 2px 0 1px}
