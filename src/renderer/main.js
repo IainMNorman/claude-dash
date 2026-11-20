@@ -71,6 +71,23 @@ function childRow(c, now) {
   </div>`;
 }
 
+function shellGroup(id, shells, now) {
+  const groups = new Map();
+  for (const c of shells) {
+    const k = c.desc || 'shell';
+    const g = groups.get(k) || { desc: k, n: 0, oldest: c.startedAt };
+    g.n++;
+    g.oldest = Math.min(g.oldest, c.startedAt);
+    groups.set(k, g);
+  }
+  const rows = [...groups.values()].sort((a, b) => a.oldest - b.oldest);
+  const oldest = Math.min(...shells.map((c) => c.startedAt));
+  return `<details class="shells" data-id="${esc(id)}" data-kind="shells"${openFinished.has(id + ':shells') ? ' open' : ''}>
+    <summary>${shells.length} background shell${shells.length > 1 ? 's' : ''} running · oldest ${dur(now - oldest)}</summary>
+    <div class="kids">${rows.map((g) => `<div class="child shell"><div class="ctop"><span class="ct"><span class="sh">$ ${esc(g.desc)}</span>${g.n > 1 ? ` <span class="mut">×${g.n}</span>` : ''}</span><span class="cb">running · ${dur(now - g.oldest)}</span></div></div>`).join('')}</div>
+  </details>`;
+}
+
 function gitLine(g) {
   if (!g) return '';
   const bits = [];
@@ -85,7 +102,8 @@ function gitLine(g) {
 
 function card(s, now) {
   const kids = s.children || [];
-  const active = kids.filter((c) => c.status !== 'done');
+  const active = kids.filter((c) => c.status !== 'done' && c.kind !== 'shell');
+  const shells = kids.filter((c) => c.status !== 'done' && c.kind === 'shell');
   const done = kids.filter((c) => c.status === 'done');
   const tk = s.tokens;
   const badge = s.displayState === 'waiting' ? 'needs you' : s.stuck ? 'quiet?' : s.displayState;
@@ -102,6 +120,7 @@ function card(s, now) {
       ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
       ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
+      ${shells.length ? shellGroup(s.id, shells, now) : ''}
       ${done.length ? `<details class="fin" data-id="${esc(s.id)}"${openFinished.has(s.id) ? ' open' : ''}><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c, now)).join('')}</div></details>` : ''}
       <div class="acts">
         ${s.link ? `<a href="${esc(s.link)}" data-act="open">Open</a>` : ''}
@@ -166,8 +185,9 @@ $('q').oninput = (e) => { query = e.target.value; render(); };
 
 $('cards').addEventListener('toggle', (e) => {
   const d = e.target;
-  if (!d.classList || !d.classList.contains('fin')) return;
-  if (d.open) openFinished.add(d.dataset.id); else openFinished.delete(d.dataset.id);
+  if (!d.classList || !(d.classList.contains('fin') || d.classList.contains('shells'))) return;
+  const key = d.classList.contains('shells') ? d.dataset.id + ':shells' : d.dataset.id;
+  if (d.open) openFinished.add(key); else openFinished.delete(key);
 }, true);
 $('cards').addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');

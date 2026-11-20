@@ -1,8 +1,10 @@
 const { createDesktopIndex } = require('./desktop');
 const { createTokenTracker } = require('./tokens');
 const { createGitTracker } = require('./git');
+const { createSubagentScanner } = require('./subagents');
+const { syncShellStarts } = require('./shells');
 
-function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTracker(), git = createGitTracker(), intervalMs = 5000 } = {}) {
+function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTracker(), git = createGitTracker(), subagents = createSubagentScanner(), intervalMs = 5000 } = {}) {
   store.resolver = (s) => {
     const d = desktop.lookup(s.id);
     return { title: d ? d.title : '', link: d ? d.link : '', tokens: tokens.get(s.transcript), git: git.get(s.cwd) };
@@ -11,7 +13,7 @@ function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTra
     const cwds = new Set();
     for (const s of store.sessions.values()) {
       if (s.state !== 'ended' || !tokens.get(s.transcript)) tokens.update(s.transcript);
-      if (s.state !== 'ended' && !s.dismissed) cwds.add(s.cwd);
+      if (s.state !== 'ended' && !s.dismissed) { cwds.add(s.cwd); store.syncChildren(s.id, subagents.scan(s.transcript)); syncShellStarts(s); }
     }
     for (const c of cwds) git.update(c);
   };

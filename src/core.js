@@ -76,6 +76,7 @@ class Store {
     normalise(s);
     if (ev.cwd && !s.cwd) { s.cwd = ev.cwd; s.project = path.basename(ev.cwd); }
     if (ev.transcript_path) s.transcript = ev.transcript_path;
+    if (ev.scratchpad_dir) s.scratchpadDir = ev.scratchpad_dir;
     s.lastEvent = t;
     if (s.dismissed && name !== 'SessionEnd') s.dismissed = false;
     const set = (state) => { if (s.state !== state) { s.state = state; s.stateSince = t; } };
@@ -158,6 +159,34 @@ class Store {
     if (this.feed.length > this.feedSize) this.feed.splice(0, this.feed.length - this.feedSize);
     for (const fn of this.listeners) fn();
     return true;
+  }
+
+  syncChildren(id, list) {
+    const s = this.sessions.get(id);
+    if (!s) return false;
+    normalise(s);
+    const t = this.now();
+    let changed = false;
+    for (const f of list) {
+      const c = s.children.find((k) => (f.id && k.id === f.id) || (f.toolUseId && k.toolUseId === f.toolUseId));
+      if (!c) {
+        const recent = f.endedAt && t - f.endedAt < 30 * 60 * 1000;
+        if (f.status === 'running' || recent) {
+          s.children.push({ kind: 'subagent', id: f.id, toolUseId: f.toolUseId, desc: f.desc, type: f.type, status: f.status, startedAt: f.startedAt || t, endedAt: f.endedAt || undefined, lastEvent: t, tool: null, toolDetail: '' });
+          changed = true;
+        }
+        continue;
+      }
+      if (!c.id && f.id) { c.id = f.id; changed = true; }
+      if (!c.desc && f.desc) { c.desc = f.desc; changed = true; }
+      if (!c.type && f.type) { c.type = f.type; changed = true; }
+      if (c.status !== 'done' && f.status === 'done') { c.status = 'done'; c.endedAt = f.endedAt || t; c.tool = null; c.toolDetail = ''; changed = true; }
+    }
+    if (changed) {
+      s.subagents = s.children.filter((c) => c.status !== 'done').length;
+      for (const fn of this.listeners) fn();
+    }
+    return changed;
   }
 
   setFlag(id, flag, value) {

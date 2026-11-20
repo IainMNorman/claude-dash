@@ -102,3 +102,6 @@ main h2 .dd:first-of-type{margin-left:auto}
 .child .tool{margin-top:4px;font-size:11px;color:var(--mut)}
 .child .cmsg{margin-top:4px;font-size:12px;font-weight:600;color:var(--wait);overflow-wrap:anywhere}
 .child .sh{font-family:ui-monospace,Menlo,monospace}
+
+.shells{margin-top:8px}
+.shells summary{cursor:pointer;color:var(--mut);font-size:12px}

@@ -198,3 +198,100 @@ test('an in-memory session missing children does not break ingest', () => {
   delete store.sessions.get('s1').children;
   assert.doesNotThrow(() => store.ingest(ev('PreToolUse', { tool_name: 'Read', tool_input: {} })));
 });
+
+const { createSubagentScanner } = require('../src/subagents');
+
+function fakeSession(metas) {
+  const root = tmp();
+  const transcript = path.join(root, 'sess1.jsonl');
+  fs.writeFileSync(transcript, '');
+  const dir = path.join(root, 'sess1', 'subagents');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [id, meta, touch] of metas) {
+    fs.writeFileSync(path.join(dir, `agent-${id}.meta.json`), JSON.stringify(meta));
+    fs.writeFileSync(path.join(dir, `agent-${id}.jsonl`), '{}\n');
+    if (touch) { const t = new Date(touch); fs.utimesSync(path.join(dir, `agent-${id}.jsonl`), t, t); fs.utimesSync(path.join(dir, `agent-${id}.meta.json`), t, t); }
+  }
+  return transcript;
+}
+
+test('scanner: running = unfinished and recently active; finished flag honoured; abandoned and ancient ignored', () => {
+  const tr = fakeSession([
+    ['run1', { description: 'M7 Task 5', agentType: 'general-purpose', toolUseId: 'tu5' }],
+    ['fin1', { description: 'Task 4', agentType: 'general-purpose', toolUseId: 'tu4', finished: true }],
+    ['dead1', { description: 'abandoned', toolUseId: 'tu0' }, Date.now() - 60 * 60 * 1000],
+    ['old1', { description: 'ancient', finished: true }, Date.now() - 3 * 24 * 3600 * 1000],
+  ]);
+  const list = createSubagentScanner().scan(tr);
+  const by = Object.fromEntries(list.map((x) => [x.id, x]));
+  assert.deepEqual(Object.keys(by).sort(), ['fin1', 'run1']);
+  assert.equal(by.run1.status, 'running');
+  assert.equal(by.run1.desc, 'M7 Task 5');
+  assert.equal(by.run1.toolUseId, 'tu5');
+  assert.equal(by.fin1.status, 'done');
+  assert.deepEqual(createSubagentScanner().scan('/no/such.jsonl'), []);
+  assert.deepEqual(createSubagentScanner().scan(''), []);
+});
+
+test('syncChildren: adds already-running agents, matches hook children by toolUseId, never revives done', () => {
+  const { store, tick } = mk();
+  tick(2 * 3600 * 1000);
+  store.ingest(ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tuA', tool_input: { description: 'A' } }));
+  const fsList = [
+    { id: 'aA', toolUseId: 'tuA', desc: 'A', type: 'general-purpose', status: 'running', startedAt: 500 },
+    { id: 'aB', toolUseId: 'tuB', desc: 'B pre-existing', type: 'general-purpose', status: 'running', startedAt: 400 },
+    { id: 'aC', toolUseId: 'tuC', desc: 'C long finished', status: 'done', startedAt: 100, endedAt: 200 },
+  ];
+  assert.equal(store.syncChildren('s1', fsList), true);
+  const kids = store.sessions.get('s1').children;
+  assert.equal(kids.length, 2, 'finished-long-ago agent not added');
+  assert.equal(kids[0].id, 'aA');
+  assert.equal(kids[1].desc, 'B pre-existing');
+  assert.equal(store.sessions.get('s1').subagents, 2);
+  assert.equal(store.syncChildren('s1', fsList), false, 'idempotent');
+  fsList[0] = { ...fsList[0], status: 'done', endedAt: 900 };
+  store.syncChildren('s1', fsList);
+  assert.equal(kids[0].status, 'done');
+  fsList[0] = { ...fsList[0], status: 'running' };
+  store.syncChildren('s1', fsList);
+  assert.equal(kids[0].status, 'done', 'done is never revived');
+  assert.equal(store.syncChildren('nope', fsList), false);
+});
+
+test('syncChildren leaves a hook-reported waiting child alone', () => {
+  const { store } = mk();
+  store.ingest(ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tuW', tool_input: { description: 'W' } }));
+  store.ingest(ev('PostToolUse', { tool_name: 'Agent', tool_use_id: 'tuW', tool_response: { isAsync: true, agentId: 'aW' } }));
+  store.ingest(ev('Notification', { agent_id: 'aW', message: 'perm' }));
+  store.syncChildren('s1', [{ id: 'aW', toolUseId: 'tuW', desc: 'W', status: 'running', startedAt: 1 }]);
+  assert.equal(store.sessions.get('s1').children[0].status, 'waiting');
+});
+
+const { syncShellStarts, tasksDirFor } = require('../src/shells');
+
+test('shell start time comes from the task output file birthtime', () => {
+  const root = tmp();
+  const scratch = path.join(root, 'sess', 'scratchpad');
+  fs.mkdirSync(path.join(root, 'sess', 'tasks'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'sess', 'tasks', 'bAAA.output'), '');
+  const session = { scratchpadDir: scratch, children: [
+    { kind: 'shell', id: 'bAAA', startedAt: 1 },
+    { kind: 'shell', id: 'bMISSING', startedAt: 2 },
+    { kind: 'subagent', id: 'aX', startedAt: 3 },
+  ] };
+  assert.equal(syncShellStarts(session), true);
+  assert.ok(session.children[0].startedAt > 1e12);
+  assert.equal(session.children[0].fsStart, true);
+  assert.equal(session.children[1].startedAt, 2);
+  assert.equal(session.children[2].startedAt, 3);
+  assert.equal(syncShellStarts(session), false, 'already synced');
+  assert.equal(syncShellStarts({ children: [] }), false);
+  assert.equal(tasksDirFor(scratch), path.join(root, 'sess', 'tasks'));
+  assert.equal(tasksDirFor(''), null);
+});
+
+test('scratchpad_dir from events is remembered on the session', () => {
+  const { store } = mk();
+  store.ingest(ev('SessionStart', { scratchpad_dir: '/tmp/x/sess/scratchpad' }));
+  assert.equal(store.sessions.get('s1').scratchpadDir, '/tmp/x/sess/scratchpad');
+});
