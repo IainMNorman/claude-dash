@@ -1,20 +1,34 @@
 const fs = require('node:fs');
+const { messageCost } = require('./pricing');
 
-function createTokenTracker() {
+const MINUTE = 60000;
+const KEEP_MINUTES = 90;
+
+function fresh() {
+  return {
+    offset: 0,
+    seen: new Set(),
+    totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, context: 0, model: '' },
+    cost: { usd: 0, unpriced: 0, byMinute: new Map() },
+  };
+}
+
+function createTokenTracker({ now = Date.now } = {}) {
   const files = new Map();
 
-  function update(file) {
+  function update(file, { sidechain = false, budgetBytes = Infinity } = {}) {
     if (!file) return null;
     let size;
     try { size = fs.statSync(file).size; } catch { return files.get(file)?.totals || null; }
     let st = files.get(file);
-    if (!st || size < st.offset) st = { offset: 0, seen: new Set(), totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, context: 0, model: '' } };
+    if (!st || size < st.offset) st = fresh();
     files.set(file, st);
     if (size === st.offset) return st.totals;
     const fd = fs.openSync(file, 'r');
     try {
-      const buf = Buffer.alloc(size - st.offset);
-      fs.readSync(fd, buf, 0, buf.length, st.offset);
+      const want = Math.min(size - st.offset, budgetBytes);
+      const buf = Buffer.alloc(want);
+      fs.readSync(fd, buf, 0, want, st.offset);
       const text = buf.toString('utf8');
       const end = text.lastIndexOf('\n');
       if (end < 0) return st.totals;
@@ -23,7 +37,7 @@ function createTokenTracker() {
         if (!line.includes('"usage"')) continue;
         let j;
         try { j = JSON.parse(line); } catch { continue; }
-        if (j.isSidechain) continue;
+        if (j.isSidechain && !sidechain) continue;
         const m = j.message;
         const u = m && m.usage;
         if (!u) continue;
@@ -36,14 +50,33 @@ function createTokenTracker() {
         st.totals.cacheWrite += u.cache_creation_input_tokens || 0;
         st.totals.context = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
         if (m.model) st.totals.model = m.model;
+        const c = messageCost(u, m.model);
+        if (c === null) { st.cost.unpriced++; continue; }
+        const ts = Date.parse(j.timestamp) || now();
+        const bucket = Math.floor(ts / MINUTE);
+        st.cost.usd += c;
+        st.cost.byMinute.set(bucket, (st.cost.byMinute.get(bucket) || 0) + c);
       }
+      const cutoff = Math.floor(now() / MINUTE) - KEEP_MINUTES;
+      for (const k of st.cost.byMinute.keys()) if (k < cutoff) st.cost.byMinute.delete(k);
     } finally {
       fs.closeSync(fd);
     }
     return st.totals;
   }
 
-  return { update, get: (file) => files.get(file)?.totals || null };
+  function costOf(file, windowMin = 10) {
+    const st = files.get(file);
+    if (!st) return { usd: 0, perHour: 0, unpriced: 0 };
+    const nowMin = Math.floor(now() / MINUTE);
+    let recent = 0;
+    for (const [k, v] of st.cost.byMinute) if (k > nowMin - windowMin) recent += v;
+    return { usd: st.cost.usd, perHour: recent * (60 / windowMin), unpriced: st.cost.unpriced };
+  }
+
+  const offsetOf = (file) => files.get(file)?.offset || 0;
+
+  return { update, costOf, offsetOf, get: (file) => files.get(file)?.totals || null };
 }
 
 module.exports = { createTokenTracker };

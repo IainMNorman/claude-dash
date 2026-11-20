@@ -127,3 +127,7 @@ aside{display:flex;flex-direction:column;min-height:0}
 }
 @media(max-width:800px){.feed{max-height:60vh}}
 body.drawer-open:not(.drawer-pinned) aside{display:flex}
+
+.cost{display:flex;gap:6px;align-items:baseline;font-size:12px;font-variant-numeric:tabular-nums}
+.burn{font-size:13px;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-variant-numeric:tabular-nums;white-space:nowrap}
+.burn:empty{display:none}

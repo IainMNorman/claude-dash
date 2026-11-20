@@ -305,3 +305,51 @@ test('tokens: context is the latest message prompt size; sidechain lines ignored
   assert.equal(t.model, 'claude-x');
   assert.equal(t.input, 30);
 });
+
+const { priceFor, messageCost } = require('../src/pricing');
+
+test('pricing: list prices, cache multipliers, long-prompt tier, model normalisation', () => {
+  assert.deepEqual(priceFor('claude-opus-5-5'), { input: 4, output: 20, readMult: 0.05, long: null });
+  assert.equal(priceFor('claude-opus-5-5[1m]').input, 4);
+  assert.equal(priceFor('claude-sonnet-4-6-20260101').input, 3);
+  assert.equal(priceFor('gpt-5'), null);
+  const u = { input_tokens: 1e6, output_tokens: 1e6, cache_read_input_tokens: 1e6, cache_creation_input_tokens: 1e6 };
+  assert.ok(Math.abs(messageCost(u, 'claude-opus-5-5') - (4 + 20 + 0.2 + 5)) < 1e-9);
+  assert.ok(Math.abs(messageCost(u, 'claude-fable-5-2') - (8 + 40 + 0.2 + 10)) < 1e-9);
+  const oneH = { ...u, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 1e6 } };
+  assert.ok(Math.abs(messageCost(oneH, 'claude-opus-5-5') - (4 + 20 + 0.2 + 8)) < 1e-9);
+  const hk = { input_tokens: 200000, output_tokens: 1e6 };
+  assert.ok(Math.abs(messageCost(hk, 'claude-haiku-5-5') - (0.2 * 0.5 + 2.5)) < 1e-9);
+  assert.equal(messageCost(u, 'mystery-model'), null);
+});
+
+test('tracker cost: per-message pricing, $/h from trailing window, sidechain handling, unpriced counted', () => {
+  const f = path.join(tmp(), 'cost.jsonl');
+  const nowMs = Date.parse('2026-11-20T12:00:00Z');
+  const iso = (minAgo) => new Date(nowMs - minAgo * 60000).toISOString();
+  const line = (id, model, out, minAgo, extra = {}) => JSON.stringify({ uuid: id, timestamp: iso(minAgo), ...extra, message: { id, model, usage: { input_tokens: 0, output_tokens: out } } }) + '\n';
+  fs.writeFileSync(f, line('a', 'claude-opus-5-5', 1e6, 5) + line('b', 'claude-opus-5-5', 1e6, 30) + line('c', 'mystery', 1e6, 1) + line('d', 'claude-opus-5-5', 1e6, 2, { isSidechain: true }));
+  const tr = createTokenTracker({ now: () => nowMs });
+  tr.update(f);
+  const c = tr.costOf(f);
+  assert.ok(Math.abs(c.usd - 40) < 1e-9, 'two main messages at $20; sidechain skipped');
+  assert.ok(Math.abs(c.perHour - 20 * 6) < 1e-9, 'only the 5-minute-old message is inside the 10-minute window');
+  assert.equal(c.unpriced, 1);
+  const tr2 = createTokenTracker({ now: () => nowMs });
+  tr2.update(f, { sidechain: true });
+  assert.ok(Math.abs(tr2.costOf(f).usd - 60) < 1e-9, 'sidechain included for subagent transcripts');
+  assert.deepEqual(tr.costOf('/nope'), { usd: 0, perHour: 0, unpriced: 0 });
+});
+
+test('snapshot.global sums per-hour and session cost across live sessions', () => {
+  const { store } = mk();
+  store.resolver = (s) => ({ cost: { usd: s.id === 'a' ? 3 : 2, perHour: s.id === 'a' ? 10 : 5 } });
+  store.ingest({ session_id: 'a', cwd: '/a', hook_event_name: 'SessionStart' });
+  store.ingest({ session_id: 'b', cwd: '/b', hook_event_name: 'SessionStart' });
+  store.ingest({ session_id: 'c', cwd: '/c', hook_event_name: 'SessionStart' });
+  store.setFlag('c', 'dismissed', true);
+  const g = store.snapshot().global;
+  assert.equal(g.perHour, 15);
+  assert.equal(g.usd, 5);
+  assert.equal(g.active, 2);
+});

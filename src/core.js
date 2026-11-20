@@ -217,7 +217,13 @@ class Store {
     });
     const rank = { waiting: 0, working: 1, idle: 2, stale: 3, ended: 4 };
     sessions.sort((a, b) => rank[a.displayState] - rank[b.displayState] || b.lastEvent - a.lastEvent);
-    return { now: t, sessions, feed: this.feed.slice(-100).reverse() };
+    const live = sessions.filter((s) => !s.dismissed);
+    const global = {
+      perHour: live.reduce((a, s) => a + ((s.cost && s.cost.perHour) || 0), 0),
+      usd: live.reduce((a, s) => a + ((s.cost && s.cost.usd) || 0), 0),
+      active: live.filter((s) => s.cost && s.cost.perHour > 0).length,
+    };
+    return { now: t, sessions, global, feed: this.feed.slice(-100).reverse() };
   }
 
   prune(maxAgeMs = 24 * 3600 * 1000) {

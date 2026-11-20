@@ -75,9 +75,19 @@ function contextWindow(tk) {
   if (tk.context > 200000 || /\[1m\]|-1m/.test(tk.model || '')) return 1000000;
   return 200000;
 }
-function tokenBlock(tk) {
+function money(n) {
+  if (!n) return '$0';
+  if (n < 0.01) return '<$0.01';
+  return '$' + (n >= 100 ? Math.round(n) : n.toFixed(2));
+}
+function costLine(c) {
+  if (!c) return '';
+  const tip = `API list-price equivalent. Rate = last 10 min x6${c.subagents ? `; includes ${c.subagents} subagent transcript${c.subagents > 1 ? 's' : ''} from the last 24h` : ''}${c.unpriced ? `; ${c.unpriced} messages from unpriced models excluded` : ''}`;
+  return `<div class="cost" title="${esc(tip)}"><b>≈ ${money(c.perHour)}/h</b><span class="mut">now</span><span class="mut">·</span><b>${money(c.usd)}</b><span class="mut">session</span></div>`;
+}
+function tokenBlock(tk, c) {
   const total = tk.input + tk.cacheWrite + tk.cacheRead + tk.output;
-  if (!total) return '';
+  if (!total) return costLine(c);
   const pct = (n) => ((n / total) * 100).toFixed(2);
   const prompt = tk.input + tk.cacheWrite + tk.cacheRead;
   const hit = prompt ? Math.round((tk.cacheRead / prompt) * 100) : 0;
@@ -85,6 +95,7 @@ function tokenBlock(tk) {
   const ctx = Math.min(100, Math.round((tk.context / win) * 100));
   const tone = ctx >= 90 ? 'hot' : ctx >= 70 ? 'warm' : '';
   return `<div class="tok">
+    ${costLine(c)}
     <div class="tbar" title="Share of all tokens">
       <i class="tcr" style="width:${pct(tk.cacheRead)}%"></i><i class="tcw" style="width:${pct(tk.cacheWrite)}%"></i><i class="tin" style="width:${pct(tk.input)}%"></i><i class="tout" style="width:${pct(tk.output)}%"></i>
     </div>
@@ -144,7 +155,7 @@ function card(s, now) {
       </div>
       <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
       ${gitLine(s.git)}
-      ${tk ? tokenBlock(tk) : ''}
+      ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
@@ -164,6 +175,9 @@ function render() {
   const all = snap.sessions.filter(live);
   const by = (st) => all.filter((s) => s.displayState === st).length;
   const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
+  const g = snap.global;
+  $('burn').innerHTML = g ? `<b>≈ ${money(g.perHour)}/h</b>` : '';
+  $('burn').title = g ? `API list-price equivalent across all sessions, last 10 min x6. Session totals: ${money(g.usd)}. ${g.active} session${g.active === 1 ? '' : 's'} spending now.` : '';
   $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
   document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
   filterMenu.refresh();
