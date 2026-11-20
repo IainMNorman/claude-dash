@@ -2,10 +2,12 @@ const { app, BrowserWindow, Tray, Menu, nativeImage } = require('electron');
 const path = require('node:path');
 const { Store } = require('./core');
 const { createServer } = require('./server');
+const { persist } = require('./persist');
 
 let win;
 let tray;
 const store = new Store();
+persist(store);
 const server = createServer(store, { staticDir: path.join(__dirname, '..', 'dist', 'renderer') });
 
 function createWindow(port) {

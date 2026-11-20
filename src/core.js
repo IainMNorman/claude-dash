@@ -72,6 +72,16 @@ class Store {
     return true;
   }
 
+  dump() {
+    return { version: 1, sessions: [...this.sessions.values()], feed: this.feed };
+  }
+
+  hydrate(data) {
+    if (!data || data.version !== 1) return;
+    for (const s of data.sessions || []) if (s && s.id) this.sessions.set(s.id, s);
+    this.feed = (data.feed || []).slice(-this.feedSize);
+  }
+
   snapshot() {
     const t = this.now();
     const sessions = [...this.sessions.values()].map((s) => {

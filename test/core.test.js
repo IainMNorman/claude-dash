@@ -107,3 +107,25 @@ test('http: POST /event updates /api/state; malformed ignored', async () => {
   server.close();
   server.closeAllConnections?.();
 });
+
+test('persist: state survives restart; ended sessions older than a day pruned', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { load, save } = require('../src/persist');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dash-')), 'state.json');
+  const a = mk();
+  a.store.ingest(ev('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'ls' } }));
+  a.store.ingest({ session_id: 'old', cwd: '/o', hook_event_name: 'SessionEnd' });
+  a.tick(2 * 24 * 3600 * 1000);
+  save(a.store, file);
+  const b = new Store({ now: () => 1000 + 2 * 24 * 3600 * 1000 });
+  assert.equal(load(b, file), true);
+  assert.equal(b.sessions.has('s1'), true);
+  assert.equal(b.sessions.get('s1').tool, 'Bash');
+  assert.equal(b.sessions.has('old'), false);
+  assert.equal(b.snapshot().feed.length, 2);
+  assert.equal(load(new Store(), path.join(os.tmpdir(), 'nope-missing.json')), false);
+  fs.writeFileSync(file, '{bad');
+  assert.equal(load(new Store(), file), false);
+});
