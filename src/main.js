@@ -20,7 +20,7 @@ function createWindow(port) {
   const { x, y, width, height, maximized, fullscreen } = sanitize(loadState(WINDOW_FILE, WINDOW_DEFAULTS), screen.getAllDisplays(), WINDOW_DEFAULTS);
   win = new BrowserWindow({
     x, y, width, height, title: 'Claude Dash', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111315' : '#f5f6f7',
-    titleBarStyle: 'hidden', trafficLightPosition: { x: 18, y: 18 },
+    titleBarStyle: 'hidden', trafficLightPosition: { x: 16, y: 19 },
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   win.loadURL(process.env.DASH_DEV_URL || `http://127.0.0.1:${port}/`);
