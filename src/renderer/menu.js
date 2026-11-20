@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 export function createMenu(root, { prefix, groups, getValue, onSelect, count }) {
   let open = false;
   root.replaceChildren();
@@ -42,7 +43,7 @@ export function createMenu(root, { prefix, groups, getValue, onSelect, count }) 
 
   const items = () => [...menu.querySelectorAll('.dditem')];
 
-  btn.innerHTML = `<span class="k"></span><span class="cur"></span>${count ? '<b class="cn"></b>' : ''}<span class="chev">▾</span>`;
+  btn.innerHTML = `<span class="k"></span><span class="cur"></span>${count ? '<b class="cn"></b>' : ''}${icon('chevron', 'chev')}`;
   const kEl = btn.querySelector('.k');
   const curEl = btn.querySelector('.cur');
   const cnEl = btn.querySelector('.cn');

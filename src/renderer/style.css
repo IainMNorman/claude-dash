@@ -242,3 +242,5 @@ body{font-size:14px}
 .toast button{font:inherit;font-weight:500;color:var(--bg);background:color-mix(in srgb,var(--bg) 18%,transparent);border:0;border-radius:8px;padding:3px 10px;cursor:pointer}
 .tleg,.ctx,.cb,.badge,.mut{font-size:12.5px}
 .ctype{font-size:11px}
+.ddbtn .chev{width:16px;height:16px;stroke-width:1.75;color:var(--mut);font-size:inherit;margin-left:2px;vertical-align:0}
+.ddbtn[aria-expanded=true] .chev{color:var(--fg)}
