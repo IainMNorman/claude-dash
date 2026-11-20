@@ -9,7 +9,8 @@ Live dashboard for Claude Code sessions on this machine. Hooks POST events to a 
    git clone https://github.com/IainMNorman/claude-dash ~/git/claude-dash
    cd ~/git/claude-dash && npm install && npm start
    ```
-   No Electron? `npm run headless`, then open http://127.0.0.1:47821.
+   `npm start` builds the UI with Vite, then launches Electron. No Electron? `npm run headless`, then open http://127.0.0.1:47821.
+   Developing? `npm run dev` runs Vite with HMR for the UI (CSS/JS update without reload) and restarts Electron when `src/*.js` changes.
 
 2. Add the hooks to `~/.claude/settings.json` (works for Claude desktop's Code tab and the CLI). Run once:
    ```bash

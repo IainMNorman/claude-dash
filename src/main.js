@@ -6,14 +6,14 @@ const { createServer } = require('./server');
 let win;
 let tray;
 const store = new Store();
-const server = createServer(store, { staticDir: path.join(__dirname, 'renderer') });
+const server = createServer(store, { staticDir: path.join(__dirname, '..', 'dist', 'renderer') });
 
 function createWindow(port) {
   win = new BrowserWindow({
     width: 980, height: 700, title: 'Claude Dash', backgroundColor: '#111315',
     webPreferences: { contextIsolation: true, sandbox: true },
   });
-  win.loadURL(`http://127.0.0.1:${port}/`);
+  win.loadURL(process.env.DASH_DEV_URL || `http://127.0.0.1:${port}/`);
   win.on('close', (e) => { if (!app.isQuitting) { e.preventDefault(); win.hide(); } });
 }
 

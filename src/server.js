@@ -4,7 +4,8 @@ const os = require('node:os');
 const path = require('node:path');
 
 const DEFAULT_PORT = 47821;
-const PORT_FILE = path.join(os.homedir(), '.claude', 'dashboard.port');
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const PORT_FILE =path.join(os.homedir(), '.claude', 'dashboard.port');
 
 function createServer(store, { staticDir } = {}) {
   const clients = new Set();
@@ -36,9 +37,13 @@ function createServer(store, { staticDir } = {}) {
       req.on('close', () => clients.delete(res));
       return;
     }
-    if (req.method === 'GET' && staticDir && (url.pathname === '/' || url.pathname === '/index.html')) {
-      res.writeHead(200, { 'content-type': 'text/html' }).end(fs.readFileSync(path.join(staticDir, 'index.html')));
-      return;
+    if (req.method === 'GET' && staticDir) {
+      const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+      const file = path.resolve(staticDir, rel);
+      if (file.startsWith(path.resolve(staticDir) + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+        res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' }).end(fs.readFileSync(file));
+        return;
+      }
     }
     res.writeHead(404).end();
   });
