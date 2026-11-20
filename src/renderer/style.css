@@ -244,3 +244,11 @@ body{font-size:14px}
 .ctype{font-size:11px}
 .ddbtn .chev{width:16px;height:16px;stroke-width:1.75;color:var(--mut);font-size:inherit;margin-left:2px;vertical-align:0}
 .ddbtn[aria-expanded=true] .chev{color:var(--fg)}
+/* lighter weights like Claude desktop */
+body{font-weight:400}
+b,strong,.msg,.ct,.proj,.dditem.on{font-weight:480}
+.proj,.ct{font-weight:450}
+h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
+.ddbtn b,.tleg b,.git b,.stat b{font-weight:500}
+.dditem{font-weight:400}
+.ddmenu{-webkit-font-smoothing:antialiased}
