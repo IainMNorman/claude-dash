@@ -1,4 +1,5 @@
 const path = require('node:path');
+const { summarise } = require('./summary');
 
 const SUBAGENT_TOOLS = new Set(['Task', 'Agent']);
 
@@ -68,7 +69,7 @@ class Store {
       s = {
         id, cwd: ev.cwd || '', project: ev.cwd ? path.basename(ev.cwd) : id.slice(0, 8),
         state: 'idle', tool: null, toolDetail: '', prompt: '', message: '',
-        children: [], pinned: false, dismissed: false, subagents: 0, toolCount: 0, startedAt: t, lastEvent: t, stateSince: t,
+        children: [], pinned: false, dismissed: false, subagents: 0, activity: '', toolCount: 0, startedAt: t, lastEvent: t, stateSince: t,
         transcript: ev.transcript_path || '',
       };
       this.sessions.set(id, s);
@@ -79,8 +80,9 @@ class Store {
     if (ev.scratchpad_dir) s.scratchpadDir = ev.scratchpad_dir;
     s.lastEvent = t;
     if (s.dismissed && name !== 'SessionEnd') s.dismissed = false;
-    const set = (state) => { if (s.state !== state) { s.state = state; s.stateSince = t; } };
+    const set = (state) => { if (s.state !== state) { if (s.state === 'ended') s.endedReason = ''; s.state = state; s.stateSince = t; } };
 
+    let feedText = '';
     const kids = s.children;
     const findChild = (id) => (id ? kids.find((c) => c.id === id || c.toolUseId === id) : undefined);
     const child = name !== 'SubagentStop' ? findChild(ev.agent_id) : undefined;
@@ -93,8 +95,10 @@ class Store {
       case 'PreToolUse': {
         set('working'); s.message = '';
         const d = detail(ev.tool_name, ev.tool_input);
-        if (child) { child.tool = ev.tool_name || null; child.toolDetail = d; child.status = 'running'; child.lastEvent = t; break; }
-        s.tool = ev.tool_name || null; s.toolDetail = d; s.toolCount++;
+        const act = summarise(ev.tool_name, ev.tool_input);
+        feedText = act;
+        if (child) { child.tool = ev.tool_name || null; child.toolDetail = d; child.activity = act; child.status = 'running'; child.lastEvent = t; break; }
+        s.tool = ev.tool_name || null; s.toolDetail = d; s.activity = act; s.toolCount++;
         if (ev.tool_name === 'Bash' && ev.tool_input && ev.tool_input.run_in_background) {
           kids.push({ kind: 'shell', id: null, toolUseId: ev.tool_use_id || null, desc: String(ev.tool_input.description || ev.tool_input.command || '').slice(0, 160), type: 'shell', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' });
         }
@@ -134,13 +138,13 @@ class Store {
         if (!c) { c = { kind: 'subagent', id: ev.agent_id || null, toolUseId: null, desc: '', type: ev.agent_type || '', status: 'done', startedAt: t, lastEvent: t, tool: null, toolDetail: '' }; kids.push(c); }
         if (!c.id && ev.agent_id) c.id = ev.agent_id;
         if (!c.type && ev.agent_type) c.type = ev.agent_type;
-        c.status = 'done'; c.endedAt = t; c.tool = null; c.toolDetail = ''; c.message = '';
+        c.status = 'done'; c.endedAt = t; c.tool = null; c.toolDetail = ''; c.activity = ''; c.message = '';
         break;
       }
       case 'Stop':
-        set('idle'); s.tool = null; s.toolDetail = ''; break;
+        set('idle'); s.tool = null; s.toolDetail = ''; s.activity = ''; break;
       case 'SessionEnd':
-        set('ended'); s.tool = null;
+        set('ended'); s.tool = null; s.activity = '';
         for (const c of kids) if (c.status !== 'done') { c.status = 'done'; c.endedAt = t; }
         break;
       default:
@@ -155,13 +159,31 @@ class Store {
       s.children = kids.filter((c) => !drop.has(c));
     }
 
-    this.feed.push({ t, session: id, project: s.project, event: name, tool: ev.tool_name || '', detail: name === 'PreToolUse' ? s.toolDetail : (ev.message || '') });
+    if (name !== 'PostToolUse') {
+      const text = name === 'PreToolUse' ? feedText : name === 'Notification' ? String(ev.message || '').slice(0, 120) : '';
+      this.feed.push({ t, session: id, project: s.project, event: name, text, child: !!(ev.agent_id && name !== 'SubagentStop') });
+    }
     if (this.feed.length > this.feedSize) this.feed.splice(0, this.feed.length - this.feedSize);
     for (const fn of this.listeners) fn();
     return true;
   }
 
-  syncChildren(id, list) {
+  markEnded(id, reason) {
+    const s = this.sessions.get(id);
+    if (!s || s.state === 'ended') return false;
+    const t = this.now();
+    s.state = 'ended'; s.tool = null; s.toolDetail = ''; s.activity = '';
+    for (const c of s.children) if (c.status !== 'done') { c.status = 'done'; c.endedAt = t; }
+    s.subagents = 0;
+    s.endedReason = reason;
+    s.stateSince = t;
+    this.feed.push({ t, session: id, project: s.project, event: 'SessionEnd', text: 'ended (' + reason + ')', child: false });
+    if (this.feed.length > this.feedSize) this.feed.splice(0, this.feed.length - this.feedSize);
+    for (const fn of this.listeners) fn();
+    return true;
+  }
+
+  syncChildren(id, list, { authoritative = false } = {}) {
     const s = this.sessions.get(id);
     if (!s) return false;
     normalise(s);
@@ -181,6 +203,12 @@ class Store {
       if (!c.desc && f.desc) { c.desc = f.desc; changed = true; }
       if (!c.type && f.type) { c.type = f.type; changed = true; }
       if (c.status !== 'done' && f.status === 'done') { c.status = 'done'; c.endedAt = f.endedAt || t; c.tool = null; c.toolDetail = ''; changed = true; }
+    }
+    if (authoritative) {
+      const known = new Set(list.map((f) => f.toolUseId).filter(Boolean));
+      const before = s.children.length;
+      s.children = s.children.filter((c) => !(c.kind === 'subagent' && !c.id && c.status === 'running' && c.toolUseId && !known.has(c.toolUseId) && t - c.startedAt > 60000));
+      if (s.children.length !== before) changed = true;
     }
     if (changed) {
       s.subagents = s.children.filter((c) => c.status !== 'done').length;
@@ -215,8 +243,8 @@ class Store {
       const extra = this.resolver ? this.resolver(s) : null;
       return { ...s, ...extra, displayState: stale ? 'stale' : s.state, stuck };
     });
-    const rank = { waiting: 0, working: 1, idle: 2, stale: 3, ended: 4 };
-    sessions.sort((a, b) => rank[a.displayState] - rank[b.displayState] || b.lastEvent - a.lastEvent);
+    const rank = { waiting: 0, working: 1, idle: 1, stale: 2, ended: 3 };
+    sessions.sort((a, b) => rank[a.displayState] - rank[b.displayState] || a.project.localeCompare(b.project) || a.startedAt - b.startedAt || a.id.localeCompare(b.id));
     const live = sessions.filter((s) => !s.dismissed);
     const global = {
       perHour: live.reduce((a, s) => a + ((s.cost && s.cost.perHour) || 0), 0),

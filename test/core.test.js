@@ -79,7 +79,7 @@ test('feed is capped and newest first', () => {
   for (let i = 0; i < 5; i++) store.ingest(ev('PreToolUse', { tool_name: 'T' + i, tool_input: {} }));
   const feed = store.snapshot().feed;
   assert.equal(feed.length, 3);
-  assert.equal(feed[0].tool, 'T4');
+  assert.equal(feed[0].text, 'T4');
 });
 
 test('prune removes only old ended sessions', () => {

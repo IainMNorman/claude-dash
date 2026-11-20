@@ -67,7 +67,7 @@ function childRow(c, now) {
     <div class="ctop"><span class="ct">${title}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
     ${sub ? `<div class="csub mut">${sub}</div>` : ''}
     ${c.status === 'waiting' ? `<div class="cmsg">${esc(c.message || 'Needs your input')}</div>` : ''}
-    ${c.status === 'running' && c.tool ? `<div class="tool">▸ ${esc(c.tool)} ${esc(c.toolDetail)}</div>` : ''}
+    ${c.status === 'running' ? `<div class="act sm"><span class="adot"></span>${esc(c.activity || 'Working…')}</div>` : ''}
   </div>`;
 }
 
@@ -157,7 +157,7 @@ function card(s, now) {
       ${gitLine(s.git)}
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
-      ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
+      ${s.displayState === 'working' || s.displayState === 'waiting' ? `<div class="act"><span class="adot"></span>${esc(s.activity || (s.displayState === 'working' ? 'Working…' : ''))}</div>` : ''}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
       ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
       ${shells.length ? shellGroup(s.id, shells, now) : ''}
@@ -185,8 +185,8 @@ function render() {
   const list = visible();
   $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
-    <div class="row"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
-    <span><b>${esc(f.project)}</b> ${esc(f.event)} ${esc(f.tool)}<div class="d">${esc(f.detail)}</div></span></div>`).join('');
+    <div class="row${f.child ? ' kid' : ''}"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
+    <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' ? f.text : f.event + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
 }
 
 const countOf = (k) => snap.sessions.filter(filters[k]).length;

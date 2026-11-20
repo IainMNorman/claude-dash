@@ -1,5 +1,7 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, Notification, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, Notification, shell, nativeTheme, screen } = require('electron');
 const path = require('node:path');
+const { loadState, saveState, sanitize, STATE_FILE: WINDOW_FILE } = require('./windowstate');
+const WINDOW_DEFAULTS = { width: 980, height: 700 };
 const { Store } = require('./core');
 const { createServer } = require('./server');
 const { persist } = require('./persist');
@@ -15,13 +17,25 @@ const attention = createAttentionTracker();
 const server = createServer(store, { staticDir: path.join(__dirname, '..', 'dist', 'renderer') });
 
 function createWindow(port) {
+  const { x, y, width, height, maximized, fullscreen } = sanitize(loadState(WINDOW_FILE, WINDOW_DEFAULTS), screen.getAllDisplays(), WINDOW_DEFAULTS);
   win = new BrowserWindow({
-    width: 980, height: 700, title: 'Claude Dash', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111315' : '#f5f6f7',
+    x, y, width, height, title: 'Claude Dash', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111315' : '#f5f6f7',
     titleBarStyle: 'hidden', trafficLightPosition: { x: 18, y: 18 },
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   win.loadURL(process.env.DASH_DEV_URL || `http://127.0.0.1:${port}/`);
-  win.on('close', (e) => { if (!app.isQuitting) { e.preventDefault(); win.hide(); } });
+  if (maximized) win.maximize();
+  if (fullscreen) win.setFullScreen(true);
+  let saveTimer;
+  const flushWindowState = () => {
+    clearTimeout(saveTimer);
+    if (!win || win.isDestroyed()) return;
+    saveState(WINDOW_FILE, { ...win.getNormalBounds(), maximized: win.isMaximized(), fullscreen: win.isFullScreen() });
+  };
+  const queueWindowState = () => { clearTimeout(saveTimer); saveTimer = setTimeout(flushWindowState, 400); };
+  for (const ev of ['resize', 'move', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) win.on(ev, queueWindowState);
+  app.on('before-quit', flushWindowState);
+  win.on('close', (e) => { flushWindowState(); if (!app.isQuitting) { e.preventDefault(); win.hide(); } });
 }
 
 function updateTray() {

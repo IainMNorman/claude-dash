@@ -353,3 +353,27 @@ test('snapshot.global sums per-hour and session cost across live sessions', () =
   assert.equal(g.usd, 5);
   assert.equal(g.active, 2);
 });
+
+test('phantom subagent (tool call errored, never ran) is dropped once disk confirms it does not exist', () => {
+  const { store, tick } = mk();
+  store.ingest(ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'ghost', tool_input: { description: 'never started' } }));
+  store.ingest(ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'real', tool_input: { description: 'sync agent' } }));
+  const fsList = [{ id: 'aReal', toolUseId: 'real', desc: 'sync agent', status: 'running', startedAt: 1 }];
+  tick(30000);
+  store.syncChildren('s1', fsList, { authoritative: true });
+  assert.equal(store.sessions.get('s1').children.length, 2, 'too young to judge');
+  tick(40000);
+  store.syncChildren('s1', fsList, { authoritative: true });
+  const kids = store.sessions.get('s1').children;
+  assert.deepEqual(kids.map((c) => c.desc), ['sync agent']);
+  assert.equal(kids[0].id, 'aReal');
+  assert.equal(store.sessions.get('s1').subagents, 1);
+});
+
+test('without an authoritative disk listing nothing is dropped', () => {
+  const { store, tick } = mk();
+  store.ingest(ev('PreToolUse', { tool_name: 'Agent', tool_use_id: 'x', tool_input: { description: 'maybe real' } }));
+  tick(10 * 60000);
+  store.syncChildren('s1', []);
+  assert.equal(store.sessions.get('s1').children.length, 1);
+});

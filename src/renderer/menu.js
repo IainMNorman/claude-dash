@@ -1,5 +1,6 @@
 export function createMenu(root, { prefix, groups, getValue, onSelect, count }) {
   let open = false;
+  root.replaceChildren();
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'ddbtn';

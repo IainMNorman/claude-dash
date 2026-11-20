@@ -5,8 +5,9 @@ const { createTokenTracker } = require('./tokens');
 const { createGitTracker } = require('./git');
 const { createSubagentScanner, subagentsDir } = require('./subagents');
 const { syncShellStarts } = require('./shells');
+const { createLivenessChecker } = require('./liveness');
 
-function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTracker(), git = createGitTracker(), subagents = createSubagentScanner(), intervalMs = 5000 } = {}) {
+function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTracker(), git = createGitTracker(), subagents = createSubagentScanner(), liveness = createLivenessChecker(), intervalMs = 5000 } = {}) {
   const costs = new Map();
   const DAY = 24 * 3600 * 1000;
   const subFiles = (transcript) => {
@@ -43,12 +44,18 @@ function enrich(store, { desktop = createDesktopIndex(), tokens = createTokenTra
     const cwds = new Set();
     for (const s of store.sessions.values()) {
       if (s.state !== 'ended' || !costs.has(s.id)) refreshCost(s);
-      if (s.state !== 'ended' && !s.dismissed) { cwds.add(s.cwd); store.syncChildren(s.id, subagents.scan(s.transcript)); syncShellStarts(s); }
+      if (s.state !== 'ended' && !s.dismissed) { cwds.add(s.cwd); store.syncChildren(s.id, subagents.scan(s.transcript), { authoritative: !!s.transcript }); syncShellStarts(s); }
     }
     for (const c of cwds) git.update(c);
   };
+  let checking = false;
+  const checkLiveness = () => {
+    if (checking) return;
+    checking = true;
+    Promise.resolve().then(() => liveness.check(store)).catch(() => {}).finally(() => { checking = false; });
+  };
   refresh();
-  const timer = setInterval(refresh, intervalMs);
+  const timer = setInterval(() => { refresh(); checkLiveness(); }, intervalMs);
   timer.unref();
   return () => clearInterval(timer);
 }
