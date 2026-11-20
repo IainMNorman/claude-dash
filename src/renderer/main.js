@@ -138,7 +138,7 @@ const filterMenu = createMenu($('filterDd'), {
     ] },
     { label: 'Not live', items: [
       { value: 'ended', label: 'Ended', dot: 'ended' },
-      { value: 'dismissed', label: 'Dismissed' },
+      { value: 'dismissed', label: 'Dismissed', dot: 'hollow' },
     ] },
     { label: 'Everything', items: [{ value: 'all', label: 'All sessions' }] },
   ],

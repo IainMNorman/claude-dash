@@ -94,3 +94,4 @@ main h2 .dd:first-of-type{margin-left:auto}
 .ddgroup .dditem{padding-left:14px}
 .dditem.sub{padding-left:32px}
 .dditem.sub .dddot{background:transparent;border:1px dashed var(--wait)}
+.dddot.hollow{background:transparent;border:1px solid var(--mut)}
