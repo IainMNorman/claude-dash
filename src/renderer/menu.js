@@ -53,7 +53,7 @@ export function createMenu(root, { prefix, groups, getValue, onSelect, count }) 
   function refresh() {
     const v = getValue();
     const cur = byValue.get(v);
-    setText(curEl, cur ? cur.it.label : '');
+    setText(curEl, cur ? (cur.it.short ?? cur.it.label) : '');
     if (cnEl) setText(cnEl, count(v));
     for (const [val, { el }] of byValue) {
       const on = val === v;

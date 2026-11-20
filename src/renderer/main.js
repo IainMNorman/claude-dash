@@ -250,8 +250,8 @@ const colsMenu = createMenu($('colsDd'), {
   getValue: () => colsPref,
   onSelect: (v) => { colsPref = v; store.set('dash.cols', v); render(); },
   groups: [{ items: [
-    { value: 'auto', label: 'Auto (fit width, one spare)' },
-    ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} column${n > 1 ? 's' : ''}` })),
+    { value: 'auto', label: 'Auto (fit width, one spare)', short: 'Auto' },
+    ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} column${n > 1 ? 's' : ''}`, short: String(n) })),
   ] }],
 });
 const sortMenu = createMenu($('sortDd'), {
