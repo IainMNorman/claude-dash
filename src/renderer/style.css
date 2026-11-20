@@ -1,9 +1,9 @@
 @font-face{font-family:'Anthropic Sans';src:url(/fonts/AnthropicSans-Romans-Variable-25x258.ttf);font-weight:100 900}
 @font-face{font-family:'Anthropic Sans';src:url(/fonts/AnthropicSans-Italics-Variable-25x258.ttf);font-weight:100 900;font-style:italic}
 @font-face{font-family:'Anthropic Serif';src:url(/fonts/AnthropicSerif-Romans-Variable-25x258.ttf);font-weight:100 900}
-h1,.proj{font-family:'Anthropic Serif',Georgia,serif}
-:root{--bg:#262624;--panel:#30302e;--line:#3d3d3a;--fg:#faf9f5;--mut:#9c9a92;--work:#6a9bcc;--wait:#d97757;--idle:#8fa571;--stale:#73726c;--end:#4a4944;--accent:#d97757}
-@media (prefers-color-scheme: light){:root{--bg:#faf9f5;--panel:#fff;--line:#e8e6dc;--fg:#141413;--mut:#6b6a63;--work:#4f82b0;--wait:#c6613f;--idle:#788c5d;--stale:#a8a69c;--end:#c9c7bc;--accent:#d97757}}
+
+:root{--bg:#1f1f1e;--panel:#2b2b29;--line:rgba(255,255,255,.09);--fg:#ececea;--mut:#a09f98;--work:#6ea0d6;--wait:#e0805f;--idle:#8fb078;--stale:#77766f;--end:#55544f;--accent:#d97757;--hover:rgba(255,255,255,.07)}
+@media (prefers-color-scheme: light){:root{--bg:#fff;--panel:#f6f5f1;--line:rgba(0,0,0,.09);--fg:#1c1c1b;--mut:#76756e;--work:#3f7cc0;--wait:#c6613f;--idle:#5f8a45;--stale:#a5a49b;--end:#c9c8c0;--hover:rgba(0,0,0,.055)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 'Anthropic Sans',-apple-system,system-ui,sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
@@ -158,3 +158,42 @@ body.drawer-open:not(.drawer-pinned) aside{display:flex}
 .dd[hidden]{display:none}
 
 .ctype{font-size:10px;font-weight:500;color:var(--mut);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+
+/* Claude desktop look */
+body{font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1{font-family:inherit;font-weight:500;font-size:14px;color:var(--mut)}
+.proj{font-family:inherit;font-weight:500;font-size:14px}
+header{border-bottom:0;padding:12px 20px 8px}
+main{padding:8px 20px 20px;gap:24px}
+main h2{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--mut);margin:0 0 12px}
+.card{border:0;border-radius:14px;padding:14px 16px;background:var(--panel)}
+.card.ended{opacity:.55}
+.card.waiting{background:color-mix(in srgb,var(--wait) 9%,var(--panel));animation:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wait) 45%,transparent)}
+.badge{text-transform:none;letter-spacing:0;color:var(--mut);display:inline-flex;gap:6px;align-items:center;font-size:12px}
+.badge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
+.card.waiting .badge,.card.stuck .badge{color:var(--wait)}
+.kids{border-left:0;padding-left:0;margin:12px 0 0;gap:6px}
+.child::before{display:none}
+.child{border:0;border-radius:10px;background:var(--hover);padding:8px 12px}
+.child.waiting{background:color-mix(in srgb,var(--wait) 12%,transparent);animation:none}
+.cb{text-transform:none;letter-spacing:0;color:var(--mut)}
+.ct{font-weight:500}
+.ctype,.wt{border:0;background:var(--hover);border-radius:6px;padding:1px 6px}
+.acts button,.acts a,.hbtn,.ddbtn,main h2 select,main h2 input{border:0;background:transparent;color:var(--mut);border-radius:8px;padding:4px 10px}
+.acts{margin-top:12px}
+.acts button:hover,.acts a:hover,.hbtn:hover,.ddbtn:hover{background:var(--hover);color:var(--fg)}
+.hbtn.on{background:var(--hover);color:var(--fg);border:0}
+main h2 input,main h2 select{background:var(--hover);color:var(--fg)}
+.ddbtn .k{color:var(--mut)}.ddbtn{color:var(--fg)}
+.ddmenu{border:1px solid var(--line);border-radius:12px;background:var(--bg);box-shadow:0 8px 28px rgba(0,0,0,.14),0 0 0 .5px var(--line)}
+.dditem{border-radius:8px}
+.ddhead{text-transform:none;letter-spacing:0}
+.burn{border:0;background:var(--panel);border-radius:999px;font-size:12px;padding:3px 12px}
+.feed{border:0;background:var(--panel);border-radius:14px}
+.row{border-bottom:0;padding:6px 14px}
+.tbar,.cbar{height:4px;border-radius:2px}
+.tbar i+i{margin-left:1px}
+.tleg,.ctx{font-size:11.5px}
+.prompt{color:var(--fg);opacity:.8}
+.card.pinned{box-shadow:inset 0 0 0 1px var(--line)}
+body.drawer-open:not(.drawer-pinned) aside{box-shadow:-8px 0 28px rgba(0,0,0,.12);border-left:1px solid var(--line)}
