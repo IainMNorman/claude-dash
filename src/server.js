@@ -5,7 +5,13 @@ const path = require('node:path');
 
 const DEFAULT_PORT = 47821;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const DEBUG_FILE = path.join(os.homedir(), '.claude', 'dashboard-debug.jsonl');
 const PORT_FILE =path.join(os.homedir(), '.claude', 'dashboard.port');
+
+function isChildEvent(ev) {
+  const n = ev.hook_event_name;
+  return n === 'SubagentStop' || n === 'SubagentStart' || ev.tool_name === 'Task' || ev.tool_name === 'Agent' || !!(ev.tool_input && ev.tool_input.run_in_background);
+}
 
 function createServer(store, { staticDir } = {}) {
   const clients = new Set();
@@ -21,7 +27,11 @@ function createServer(store, { staticDir } = {}) {
       let body = '';
       req.on('data', (c) => { body += c; if (body.length > 1e6) req.destroy(); });
       req.on('end', () => {
-        try { store.ingest(JSON.parse(body)); } catch { /* ignore malformed */ }
+        try {
+          const ev = JSON.parse(body);
+          if (process.env.CLAUDE_DASH_DEBUG !== '0' && isChildEvent(ev)) fs.appendFile(DEBUG_FILE, JSON.stringify({ t: Date.now(), ...ev }) + '\n', () => {});
+          store.ingest(ev);
+        } catch { /* ignore malformed */ }
         res.writeHead(204).end();
       });
       return;

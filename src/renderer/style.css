@@ -18,7 +18,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;padding:20p
 .tool{font-family:ui-monospace,Menlo,monospace;font-size:12px;margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere}
 .prompt{margin-top:6px;color:var(--mut);overflow-wrap:anywhere}
 .msg{margin-top:6px;color:var(--wait)}
-aside h2{font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+main h2{font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .feed{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-height:75vh;overflow:auto}
 .row{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px}
 .row:last-child{border:0}
