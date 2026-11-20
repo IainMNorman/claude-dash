@@ -8,7 +8,7 @@ function fresh() {
   return {
     offset: 0,
     seen: new Set(),
-    totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, context: 0, model: '' },
+    totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, context: 0, model: '', lastText: '' },
     cost: { usd: 0, unpriced: 0, byMinute: new Map() },
   };
 }
@@ -34,11 +34,22 @@ function createTokenTracker({ now = Date.now } = {}) {
       if (end < 0) return st.totals;
       st.offset += Buffer.byteLength(text.slice(0, end + 1));
       for (const line of text.slice(0, end).split('\n')) {
-        if (!line.includes('"usage"')) continue;
+        const userLine = line.includes('"type":"user"') && !line.includes('"tool_use_id"');
+        if (!userLine && !line.includes('"usage"')) continue;
         let j;
         try { j = JSON.parse(line); } catch { continue; }
         if (j.isSidechain && !sidechain) continue;
         const m = j.message;
+        if (userLine) {
+          const c = m && m.content;
+          const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter((b) => b && b.type === 'text').map((b) => b.text).join(' ') : '';
+          if (!j.isSidechain && t.trim() && !/^\s*<(agent-message|task-notification|system-reminder|command-)/.test(t)) st.totals.lastText = '';
+          continue;
+        }
+        if (!j.isSidechain && Array.isArray(m && m.content)) {
+          const t = m.content.filter((b) => b && b.type === 'text' && b.text).map((b) => b.text).join(' ').replace(/\s+/g, ' ').trim();
+          if (t) st.totals.lastText = t.slice(0, 240);
+        }
         const u = m && m.usage;
         if (!u) continue;
         const key = m.id || j.uuid;

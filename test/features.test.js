@@ -108,9 +108,9 @@ test('tokens: incremental, dedupes message ids, tolerates partial last line', ()
   const line = (id, i, o) => JSON.stringify({ uuid: 'u' + id, message: { id, usage: { input_tokens: i, output_tokens: o, cache_read_input_tokens: 10, cache_creation_input_tokens: 1 } } }) + '\n';
   fs.writeFileSync(f, line('m1', 5, 7) + line('m1', 5, 7) + '{"partial');
   const tr = createTokenTracker();
-  assert.deepEqual(tr.update(f), { input: 5, output: 7, cacheRead: 10, cacheWrite: 1, context: 16, model: '' });
+  assert.deepEqual(tr.update(f), { input: 5, output: 7, cacheRead: 10, cacheWrite: 1, context: 16, model: '', lastText: '' });
   fs.appendFileSync(f, '":1}\n' + line('m2', 3, 2));
-  assert.deepEqual(tr.update(f), { input: 8, output: 9, cacheRead: 20, cacheWrite: 2, context: 14, model: '' });
+  assert.deepEqual(tr.update(f), { input: 8, output: 9, cacheRead: 20, cacheWrite: 2, context: 14, model: '', lastText: '' });
   assert.equal(tr.update('/nonexistent/x.jsonl'), null);
   assert.equal(tr.update(''), null);
 });
@@ -387,4 +387,20 @@ test('scanner reports the subagent model from its transcript', () => {
   fs.writeFileSync(path.join(sub, 'agent-a1.jsonl'), '{"type":"assistant","message":{"model":"claude-haiku-5-5","usage":{}}}\n');
   const out = createSubagentScanner().scan(transcript);
   assert.equal(out[0].model, 'claude-haiku-5-5');
+});
+
+test('tokens: last agent text shows until a real user prompt arrives; tool results and hand-backs do not clear it', () => {
+  const f = path.join(tmp(), 'say.jsonl');
+  const asst = (t) => JSON.stringify({ type: 'assistant', uuid: 'a' + t, message: { id: 'm' + t, content: [{ type: 'text', text: t }], usage: { input_tokens: 1, output_tokens: 1 } } }) + '\n';
+  const user = (c) => JSON.stringify({ type: 'user', message: { role: 'user', content: c } }) + '\n';
+  const toolResult = JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }] } }) + '\n';
+  const tr = createTokenTracker();
+  fs.writeFileSync(f, user('do the thing') + asst('on it, editing files') + toolResult);
+  assert.equal(tr.update(f).lastText, 'on it, editing files');
+  fs.appendFileSync(f, user('<agent-message from="x">report</agent-message>'));
+  assert.equal(tr.update(f).lastText, 'on it, editing files');
+  fs.appendFileSync(f, user('thanks, now something else'));
+  assert.equal(tr.update(f).lastText, '');
+  fs.appendFileSync(f, asst('sure, starting now'));
+  assert.equal(tr.update(f).lastText, 'sure, starting now');
 });

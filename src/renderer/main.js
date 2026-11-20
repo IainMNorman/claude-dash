@@ -189,7 +189,7 @@ function card(s) {
         const text = (live && s.activity && !(delegating && n) && s.activity) || (live && n ? `Waiting on ${n} subagent${n > 1 ? 's' : ''}` : '');
         return `<div class="act${live && (s.activity || n) ? '' : ' quiet'}">${live && (s.activity || n) ? '<span class="adot"></span>' : icon('clock')}${text ? esc(text) : `Last event ${tspan(s.lastEvent)} ago`}</div>`;
       })()}
-      ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
+      ${s.say || s.prompt ? `<div class="prompt${s.say ? ' say' : ''}" title="${esc(s.say ? (s.prompt ? 'You asked: ' + s.prompt : '') : '')}">${s.say ? esc(s.say) : `“${esc(s.prompt)}”`}</div>` : ''}
       ${active.length ? `<div class="kids">${active.map((c) => childRow(c)).join('')}</div>` : ''}
       ${shells.length ? shellGroup(s.id, shells) : ''}
       ${done.length ? `<details class="fin" data-id="${esc(s.id)}"><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c)).join('')}</div></details>` : ''}

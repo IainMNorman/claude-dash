@@ -323,3 +323,4 @@ main h2{gap:6px}
 .card.waiting.kbsel{box-shadow:inset 3px 0 0 var(--wait),inset 0 0 0 2px var(--accent)}
 .card[draggable=true]{user-select:none}
 .card[draggable=true] .prompt,.card[draggable=true] .act{user-select:text}
+.prompt.say{color:var(--fg);opacity:1}
