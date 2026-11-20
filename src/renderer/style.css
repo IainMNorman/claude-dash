@@ -95,3 +95,6 @@ main h2 .dd:first-of-type{margin-left:auto}
 .dditem.sub{padding-left:32px}
 .dditem.sub .dddot{background:transparent;border:1px dashed var(--wait)}
 .dddot.hollow{background:transparent;border:1px solid var(--mut)}
+
+.electron header{padding-left:86px;-webkit-app-region:drag;user-select:none}
+.electron header button,.electron header input,.electron header a{-webkit-app-region:no-drag}

@@ -1,5 +1,7 @@
 import { createMenu } from './menu.js';
 
+if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron');
+
 let snap = { sessions: [], feed: [], now: Date.now() };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
