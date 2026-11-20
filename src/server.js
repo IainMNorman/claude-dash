@@ -14,6 +14,7 @@ function isChildEvent(ev) {
 }
 
 function createServer(store, { staticDir } = {}) {
+  const sampled = new Set();
   const clients = new Set();
   const push = () => {
     const data = `data: ${JSON.stringify(store.snapshot())}\n\n`;
@@ -29,9 +30,13 @@ function createServer(store, { staticDir } = {}) {
       req.on('end', () => {
         try {
           const ev = JSON.parse(body);
+          if (process.env.CLAUDE_DASH_DEBUG !== '0' && ev.hook_event_name && 'background_tasks' in ev) {
+            const k = `${ev.hook_event_name}|${Array.isArray(ev.background_tasks) ? ev.background_tasks.length > 0 : 'x'}`;
+            if (!sampled.has(k)) { sampled.add(k); fs.appendFile(DEBUG_FILE, JSON.stringify({ t: Date.now(), sample: k, ...ev }) + '\n', () => {}); }
+          }
           if (process.env.CLAUDE_DASH_DEBUG !== '0' && isChildEvent(ev)) fs.appendFile(DEBUG_FILE, JSON.stringify({ t: Date.now(), ...ev }) + '\n', () => {});
           store.ingest(ev);
-        } catch { /* ignore malformed */ }
+        } catch (e) { if (!(e instanceof SyntaxError)) console.error('event failed:', e); }
         res.writeHead(204).end();
       });
       return;

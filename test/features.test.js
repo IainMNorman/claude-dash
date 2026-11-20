@@ -181,3 +181,20 @@ test('id-less shell is closed when a task list arrives with no shells after 15s'
   store.ingest(ev('Notification', { notification_type: 'idle_prompt', background_tasks: [] }));
   assert.equal(store.sessions.get('s1').children[0].status, 'done');
 });
+
+test('sessions saved by older versions (no children/flags) still ingest after hydrate', () => {
+  const { store } = mk();
+  store.hydrate({ version: 1, feed: [], sessions: [{ id: 'old1', cwd: '/o/old', project: 'old', state: 'working', tool: null, toolDetail: '', prompt: '', message: '', toolCount: 3, startedAt: 1, lastEvent: 1, stateSince: 1, transcript: '' }] });
+  assert.doesNotThrow(() => store.ingest({ session_id: 'old1', hook_event_name: 'PreToolUse', tool_name: 'Agent', tool_use_id: 't', tool_input: { description: 'x' } }));
+  const s = store.sessions.get('old1');
+  assert.equal(s.children.length, 1);
+  assert.equal(s.pinned, false);
+  assert.equal(store.snapshot().sessions[0].subagents, 1);
+});
+
+test('an in-memory session missing children does not break ingest', () => {
+  const { store } = mk();
+  store.ingest(ev('SessionStart'));
+  delete store.sessions.get('s1').children;
+  assert.doesNotThrow(() => store.ingest(ev('PreToolUse', { tool_name: 'Read', tool_input: {} })));
+});

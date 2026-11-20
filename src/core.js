@@ -33,6 +33,14 @@ function reconcile(s, list, t) {
   }
 }
 
+function normalise(s) {
+  if (!Array.isArray(s.children)) s.children = [];
+  if (typeof s.pinned !== 'boolean') s.pinned = false;
+  if (typeof s.dismissed !== 'boolean') s.dismissed = false;
+  if (typeof s.subagents !== 'number') s.subagents = 0;
+  return s;
+}
+
 class Store {
   constructor({ staleMs = 10 * 60 * 1000, feedSize = 200, now = Date.now } = {}) {
     this.sessions = new Map();
@@ -65,6 +73,7 @@ class Store {
       };
       this.sessions.set(id, s);
     }
+    normalise(s);
     if (ev.cwd && !s.cwd) { s.cwd = ev.cwd; s.project = path.basename(ev.cwd); }
     if (ev.transcript_path) s.transcript = ev.transcript_path;
     s.lastEvent = t;
@@ -165,7 +174,7 @@ class Store {
 
   hydrate(data) {
     if (!data || data.version !== 1) return;
-    for (const s of data.sessions || []) if (s && s.id) this.sessions.set(s.id, s);
+    for (const s of data.sessions || []) if (s && s.id) this.sessions.set(s.id, normalise(s));
     this.feed = (data.feed || []).slice(-this.feedSize);
   }
 
