@@ -32,7 +32,19 @@ Live dashboard for Claude Code sessions on this machine. Hooks POST events to a 
 
 3. Start a **new** Claude session (hooks load at session start). It appears in the dashboard within seconds. If not, quit and reopen Claude desktop.
 
+## Features
+
+- Session cards: desktop thread title, state, current tool, token totals (from transcripts), subagent rows (running / needs you / finished), "quiet?" flag after 3 min without events.
+- **Needs you:** permission prompts highlight the card (and the subagent that asked), set the window title count and Dock badge, and fire a desktop notification. Clicking it opens the thread in Claude desktop.
+- **Open** button on each card uses `claude://code/continue?session=local_<id>` (needs Claude desktop's entry-point deep links enabled).
+- Filter (Live, Waiting, Working, Quiet?, Stale, Ended, Dismissed, All), search, sort (status, latest event, name, longest in state, most tools, newest), pin and dismiss.
+- Activity drawer: toggle with the Activity button; Pin docks it as a column, unpinned it floats (Esc or click outside closes).
+- State persists in `~/.claude/dashboard-state.json`.
+
 ## Notes
+
+- Child-event payloads are logged to `~/.claude/dashboard-debug.jsonl`; set `CLAUDE_DASH_DEBUG=0` to disable.
+- Background shells (`run_in_background` Bash) are not tracked as children yet.
 
 - Port: 47821, override with `CLAUDE_DASH_PORT`. The server writes its port to `~/.claude/dashboard.port`, which the hook script reads.
 - The hook script fails silently if the dashboard isn't running, so Claude is never blocked.

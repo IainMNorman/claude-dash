@@ -1,71 +1,152 @@
 let snap = { sessions: [], feed: [], now: Date.now() };
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
+};
+
 function dur(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
   if (s < 60) return s + 's';
   if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
   return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
 }
-let sortBy = 'status';
-try { sortBy = localStorage.getItem('dash.sort') || 'status'; } catch {}
+function num(n) {
+  if (n < 1000) return String(n);
+  if (n < 1e6) return (n / 1e3).toFixed(n < 1e4 ? 1 : 0) + 'k';
+  return (n / 1e6).toFixed(1) + 'M';
+}
+
+let sortBy = store.get('dash.sort', 'status');
+let filterBy = store.get('dash.filter', 'live');
+let query = '';
+const openFinished = new Set();
+
 const sorters = {
   status: null,
   latest: (a, b) => b.lastEvent - a.lastEvent,
-  name: (a, b) => a.project.localeCompare(b.project) || b.lastEvent - a.lastEvent,
+  name: (a, b) => (a.title || a.project).localeCompare(b.title || b.project) || b.lastEvent - a.lastEvent,
   state: (a, b) => a.stateSince - b.stateSince,
   tools: (a, b) => b.toolCount - a.toolCount,
   started: (a, b) => b.startedAt - a.startedAt,
 };
-let filterBy = 'live';
-try { filterBy = localStorage.getItem('dash.filter') || 'live'; } catch {}
-let query = '';
+const live = (s) => !s.dismissed;
 const filters = {
-  live: (s) => s.displayState !== 'ended',
-  waiting: (s) => s.displayState === 'waiting',
-  working: (s) => s.displayState === 'working',
-  stale: (s) => s.displayState === 'stale',
-  ended: (s) => s.displayState === 'ended',
+  live: (s) => live(s) && s.displayState !== 'ended',
+  waiting: (s) => live(s) && s.displayState === 'waiting',
+  working: (s) => live(s) && s.displayState === 'working',
+  stuck: (s) => live(s) && s.stuck,
+  stale: (s) => live(s) && s.displayState === 'stale',
+  ended: (s) => live(s) && s.displayState === 'ended',
+  dismissed: (s) => s.dismissed,
   all: () => true,
 };
+
 function visible() {
   const q = query.trim().toLowerCase();
   let list = snap.sessions.filter(filters[filterBy] || filters.live);
-  if (q) list = list.filter((s) => (s.project + ' ' + s.cwd + ' ' + s.prompt + ' ' + s.toolDetail).toLowerCase().includes(q));
+  if (q) list = list.filter((s) => `${s.project} ${s.title} ${s.cwd} ${s.prompt} ${s.toolDetail}`.toLowerCase().includes(q));
   const fn = sorters[sortBy];
-  return fn ? [...list].sort(fn) : list;
+  if (fn) list = [...list].sort(fn);
+  return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 }
-$('filter').value = filterBy;
-$('filter').onchange = (e) => {
-  filterBy = e.target.value;
-  try { localStorage.setItem('dash.filter', filterBy); } catch {}
-  render();
-};
-$('q').oninput = (e) => { query = e.target.value; render(); };
-$('sort').value = sortBy;
-$('sort').onchange = (e) => {
-  sortBy = e.target.value;
-  try { localStorage.setItem('dash.sort', sortBy); } catch {}
-  render();
-};
 
-function render() {
-  const now = snap.now;
-  const by = (st) => snap.sessions.filter((s) => s.displayState === st).length;
-  $('stats').innerHTML = `<b>${by('working')}</b> working · <b>${by('waiting')}</b> waiting · <b>${by('idle')}</b> idle`;
-  const list = visible();
-  $('cards').innerHTML = list.length ? list.map((s) => `
-    <div class="card ${s.displayState}">
-      <div class="top"><span class="proj">${esc(s.project)}</span><span class="badge">${s.displayState} · ${dur(now - s.stateSince)}</span></div>
-      <div class="mut">${esc(s.cwd)} · ${s.toolCount} tools${s.subagents ? ` · ${s.subagents} subagent${s.subagents > 1 ? 's' : ''}` : ''} · up ${dur(now - s.startedAt)}</div>
+function childRow(c, now) {
+  const end = c.endedAt || now;
+  const what = c.status === 'waiting' ? c.message || 'needs you' : c.tool ? `${c.tool} ${c.toolDetail}` : '';
+  return `<div class="child ${c.status}">
+    <span class="dot"></span>
+    <span class="cd">${esc(c.desc || c.type || 'subagent')}${c.type && c.desc ? ` <span class="mut">${esc(c.type)}</span>` : ''}${what ? `<div class="tool sm">${esc(what)}</div>` : ''}</span>
+    <span class="mut">${c.status === 'waiting' ? 'needs you · ' : ''}${dur(end - c.startedAt)}</span>
+  </div>`;
+}
+
+function card(s, now) {
+  const kids = s.children || [];
+  const active = kids.filter((c) => c.status !== 'done');
+  const done = kids.filter((c) => c.status === 'done');
+  const tk = s.tokens;
+  const badge = s.displayState === 'waiting' ? 'needs you' : s.stuck ? 'quiet?' : s.displayState;
+  return `
+    <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
+      <div class="top">
+        <span class="proj">${s.pinned ? '📌 ' : ''}${esc(s.title || s.project)}</span>
+        <span class="badge">${badge} · ${dur(now - s.stateSince)}</span>
+      </div>
+      <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
+      ${tk ? `<div class="mut">↑ ${num(tk.input + tk.cacheWrite)} · ↓ ${num(tk.output)} · cache ${num(tk.cacheRead)}</div>` : ''}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}
-    </div>`).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
+      ${active.length ? `<div class="kids">${active.map((c) => childRow(c, now)).join('')}</div>` : ''}
+      ${done.length ? `<details class="fin" data-id="${esc(s.id)}"${openFinished.has(s.id) ? ' open' : ''}><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c, now)).join('')}</div></details>` : ''}
+      <div class="acts">
+        ${s.link ? `<a href="${esc(s.link)}" data-act="open">Open</a>` : ''}
+        <button data-act="pin" type="button">${s.pinned ? 'Unpin' : 'Pin'}</button>
+        <button data-act="dismiss" type="button">${s.dismissed ? 'Restore' : 'Dismiss'}</button>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const now = snap.now;
+  const all = snap.sessions.filter(live);
+  const by = (st) => all.filter((s) => s.displayState === st).length;
+  const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
+  $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
+  document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
+  const list = visible();
+  $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
     <div class="row"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
     <span><b>${esc(f.project)}</b> ${esc(f.event)} ${esc(f.tool)}<div class="d">${esc(f.detail)}</div></span></div>`).join('');
 }
+
+$('sort').value = sortBy;
+$('sort').onchange = (e) => { sortBy = e.target.value; store.set('dash.sort', sortBy); render(); };
+$('filter').value = filterBy;
+$('filter').onchange = (e) => { filterBy = e.target.value; store.set('dash.filter', filterBy); render(); };
+$('q').oninput = (e) => { query = e.target.value; render(); };
+
+$('cards').addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (!d.classList || !d.classList.contains('fin')) return;
+  if (d.open) openFinished.add(d.dataset.id); else openFinished.delete(d.dataset.id);
+}, true);
+$('cards').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const id = el.closest('.card').dataset.id;
+  const s = snap.sessions.find((x) => x.id === id);
+  if (el.dataset.act === 'open') return;
+  const flag = el.dataset.act === 'pin' ? 'pinned' : 'dismissed';
+  fetch('/api/session', { method: 'POST', body: JSON.stringify({ id, flag, value: !s[flag] }) });
+});
+
+let drawerOpen = store.get('dash.drawer', 'open') === 'open';
+let drawerPinned = store.get('dash.pinned', 'pinned') === 'pinned';
+function applyDrawer() {
+  document.body.classList.toggle('drawer-open', drawerOpen);
+  document.body.classList.toggle('drawer-pinned', drawerPinned);
+  $('drawerBtn').classList.toggle('on', drawerOpen);
+  $('drawerBtn').setAttribute('aria-expanded', String(drawerOpen));
+  $('pinBtn').classList.toggle('on', drawerPinned);
+  $('pinBtn').textContent = drawerPinned ? 'Pinned' : 'Pin';
+  store.set('dash.drawer', drawerOpen ? 'open' : 'closed');
+  store.set('dash.pinned', drawerPinned ? 'pinned' : 'floating');
+}
+$('drawerBtn').onclick = (e) => { e.stopPropagation(); drawerOpen = !drawerOpen; applyDrawer(); };
+$('closeBtn').onclick = () => { drawerOpen = false; applyDrawer(); };
+$('pinBtn').onclick = () => { drawerPinned = !drawerPinned; applyDrawer(); };
+const onDocClick = (e) => {
+  if (drawerOpen && !drawerPinned && !e.target.closest('#drawer') && !e.target.closest('#drawerBtn')) { drawerOpen = false; applyDrawer(); }
+};
+const onKey = (e) => { if (e.key === 'Escape' && drawerOpen && !drawerPinned) { drawerOpen = false; applyDrawer(); } };
+document.addEventListener('click', onDocClick);
+document.addEventListener('keydown', onKey);
+applyDrawer();
+
 let es;
 let timer;
 function connect() {
@@ -78,6 +159,6 @@ connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { es.close(); clearInterval(timer); });
+  import.meta.hot.dispose(() => { es.close(); clearInterval(timer); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
   import.meta.hot.accept();
 }
