@@ -19,7 +19,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;padding:20p
 .prompt{margin-top:6px;color:var(--mut);overflow-wrap:anywhere}
 .msg{margin-top:6px;color:var(--wait)}
 main h2{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
-.feed{background:var(--panel);border:1px solid var(--line);border-radius:8px;max-height:75vh;overflow:auto}
+.feed{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto}
 .row{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px}
 .row:last-child{border:0}
 .row>span:last-child{min-width:0}
@@ -105,3 +105,25 @@ main h2 .dd:first-of-type{margin-left:auto}
 
 .shells{margin-top:8px}
 .shells summary{cursor:pointer;color:var(--mut);font-size:12px}
+
+.tok{margin-top:8px;display:grid;gap:6px}
+.tbar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--fg) 8%,transparent)}
+.tbar i{display:block;height:100%;min-width:0}
+.tcr{background:color-mix(in srgb,var(--work) 55%,var(--panel))}.tcw{background:var(--wait)}.tin{background:var(--work)}.tout{background:var(--idle)}
+.tleg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--mut)}
+.tleg span{display:inline-flex;gap:5px;align-items:center}
+.tleg i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.tleg b{color:var(--fg);font-weight:500}
+.ctx{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;font-size:11px}
+.cbar{height:6px;border-radius:3px;background:color-mix(in srgb,var(--fg) 8%,transparent);overflow:hidden}
+.cbar i{display:block;height:100%;background:var(--idle)}
+.ctx.warm .cbar i{background:var(--wait)}
+.ctx.hot .cbar i{background:#e5484d}
+
+aside{display:flex;flex-direction:column;min-height:0}
+.feed{flex:1;min-height:0;max-height:none;overflow:auto}
+@media(min-width:801px){
+  body.drawer-open.drawer-pinned aside{position:sticky;top:75px;align-self:start;height:calc(100vh - 95px)}
+}
+@media(max-width:800px){.feed{max-height:60vh}}
+body.drawer-open:not(.drawer-pinned) aside{display:flex}

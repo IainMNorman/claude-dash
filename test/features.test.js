@@ -108,9 +108,9 @@ test('tokens: incremental, dedupes message ids, tolerates partial last line', ()
   const line = (id, i, o) => JSON.stringify({ uuid: 'u' + id, message: { id, usage: { input_tokens: i, output_tokens: o, cache_read_input_tokens: 10, cache_creation_input_tokens: 1 } } }) + '\n';
   fs.writeFileSync(f, line('m1', 5, 7) + line('m1', 5, 7) + '{"partial');
   const tr = createTokenTracker();
-  assert.deepEqual(tr.update(f), { input: 5, output: 7, cacheRead: 10, cacheWrite: 1 });
+  assert.deepEqual(tr.update(f), { input: 5, output: 7, cacheRead: 10, cacheWrite: 1, context: 16, model: '' });
   fs.appendFileSync(f, '":1}\n' + line('m2', 3, 2));
-  assert.deepEqual(tr.update(f), { input: 8, output: 9, cacheRead: 20, cacheWrite: 2 });
+  assert.deepEqual(tr.update(f), { input: 8, output: 9, cacheRead: 20, cacheWrite: 2, context: 14, model: '' });
   assert.equal(tr.update('/nonexistent/x.jsonl'), null);
   assert.equal(tr.update(''), null);
 });
@@ -294,4 +294,14 @@ test('scratchpad_dir from events is remembered on the session', () => {
   const { store } = mk();
   store.ingest(ev('SessionStart', { scratchpad_dir: '/tmp/x/sess/scratchpad' }));
   assert.equal(store.sessions.get('s1').scratchpadDir, '/tmp/x/sess/scratchpad');
+});
+
+test('tokens: context is the latest message prompt size; sidechain lines ignored; model captured', () => {
+  const f = path.join(tmp(), 'c.jsonl');
+  const line = (id, i, cr, cw, extra = {}) => JSON.stringify({ uuid: 'u' + id, ...extra, message: { id, model: 'claude-x', usage: { input_tokens: i, output_tokens: 1, cache_read_input_tokens: cr, cache_creation_input_tokens: cw } } }) + '\n';
+  fs.writeFileSync(f, line('a', 10, 1000, 50) + line('b', 20, 3000, 10) + line('c', 999999, 0, 0, { isSidechain: true }));
+  const t = createTokenTracker().update(f);
+  assert.equal(t.context, 3030);
+  assert.equal(t.model, 'claude-x');
+  assert.equal(t.input, 30);
 });

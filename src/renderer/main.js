@@ -71,6 +71,35 @@ function childRow(c, now) {
   </div>`;
 }
 
+function contextWindow(tk) {
+  if (tk.context > 200000 || /\[1m\]|-1m/.test(tk.model || '')) return 1000000;
+  return 200000;
+}
+function tokenBlock(tk) {
+  const total = tk.input + tk.cacheWrite + tk.cacheRead + tk.output;
+  if (!total) return '';
+  const pct = (n) => ((n / total) * 100).toFixed(2);
+  const prompt = tk.input + tk.cacheWrite + tk.cacheRead;
+  const hit = prompt ? Math.round((tk.cacheRead / prompt) * 100) : 0;
+  const win = contextWindow(tk);
+  const ctx = Math.min(100, Math.round((tk.context / win) * 100));
+  const tone = ctx >= 90 ? 'hot' : ctx >= 70 ? 'warm' : '';
+  return `<div class="tok">
+    <div class="tbar" title="Share of all tokens">
+      <i class="tcr" style="width:${pct(tk.cacheRead)}%"></i><i class="tcw" style="width:${pct(tk.cacheWrite)}%"></i><i class="tin" style="width:${pct(tk.input)}%"></i><i class="tout" style="width:${pct(tk.output)}%"></i>
+    </div>
+    <div class="tleg">
+      <span><i class="tcr"></i>cache read ${num(tk.cacheRead)} <b>${hit}% hit</b></span>
+      <span><i class="tcw"></i>cache write ${num(tk.cacheWrite)}</span>
+      <span><i class="tin"></i>new in ${num(tk.input)}</span>
+      <span><i class="tout"></i>out ${num(tk.output)}</span>
+    </div>
+    <div class="ctx ${tone}" title="Latest prompt size vs a ${num(win)} window${win === 200000 ? ' (assumed unless it exceeds 200k)' : ''}">
+      <span class="mut">Context</span><div class="cbar"><i style="width:${ctx}%"></i></div><b>${num(tk.context)}</b><span class="mut">${ctx}%</span>
+    </div>
+  </div>`;
+}
+
 function shellGroup(id, shells, now) {
   const groups = new Map();
   for (const c of shells) {
@@ -115,7 +144,7 @@ function card(s, now) {
       </div>
       <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
       ${gitLine(s.git)}
-      ${tk ? `<div class="mut">↑ ${num(tk.input + tk.cacheWrite)} · ↓ ${num(tk.output)} · cache ${num(tk.cacheRead)}</div>` : ''}
+      ${tk ? tokenBlock(tk) : ''}
       ${s.message ? `<div class="msg">${esc(s.message)}</div>` : ''}
       ${s.tool ? `<div class="tool">▸ ${esc(s.tool)} ${esc(s.toolDetail)}</div>` : ''}
       ${s.prompt ? `<div class="prompt">“${esc(s.prompt)}”</div>` : ''}

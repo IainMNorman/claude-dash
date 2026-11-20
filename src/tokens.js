@@ -8,7 +8,7 @@ function createTokenTracker() {
     let size;
     try { size = fs.statSync(file).size; } catch { return files.get(file)?.totals || null; }
     let st = files.get(file);
-    if (!st || size < st.offset) st = { offset: 0, seen: new Set(), totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
+    if (!st || size < st.offset) st = { offset: 0, seen: new Set(), totals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, context: 0, model: '' } };
     files.set(file, st);
     if (size === st.offset) return st.totals;
     const fd = fs.openSync(file, 'r');
@@ -23,6 +23,7 @@ function createTokenTracker() {
         if (!line.includes('"usage"')) continue;
         let j;
         try { j = JSON.parse(line); } catch { continue; }
+        if (j.isSidechain) continue;
         const m = j.message;
         const u = m && m.usage;
         if (!u) continue;
@@ -33,6 +34,8 @@ function createTokenTracker() {
         st.totals.output += u.output_tokens || 0;
         st.totals.cacheRead += u.cache_read_input_tokens || 0;
         st.totals.cacheWrite += u.cache_creation_input_tokens || 0;
+        st.totals.context = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+        if (m.model) st.totals.model = m.model;
       }
     } finally {
       fs.closeSync(fd);
