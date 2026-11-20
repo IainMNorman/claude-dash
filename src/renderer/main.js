@@ -35,6 +35,7 @@ const live = (s) => !s.dismissed;
 const filters = {
   live: (s) => live(s) && s.displayState !== 'ended',
   waiting: (s) => live(s) && s.displayState === 'waiting',
+  idle: (s) => live(s) && s.displayState === 'idle',
   working: (s) => live(s) && s.displayState === 'working',
   stuck: (s) => live(s) && s.stuck,
   stale: (s) => live(s) && s.displayState === 'stale',
@@ -109,6 +110,7 @@ function render() {
   const waiting = by('waiting') + all.filter((s) => (s.children || []).some((c) => c.status === 'waiting') && s.displayState !== 'waiting').length;
   $('stats').innerHTML = `${waiting ? `<b class="need">${waiting} need you</b> · ` : ''}<b>${by('working')}</b> working · <b>${by('idle')}</b> idle`;
   document.title = waiting ? `(${waiting}) Claude Dash` : 'Claude Dash';
+  updateFilterLabels();
   const list = visible();
   $('cards').innerHTML = list.length ? list.map((s) => card(s, now)).join('') : `<div class="empty">${snap.sessions.length ? 'No sessions match this filter.' : 'No sessions yet. Start a new Claude Code session with the claude-dash hooks enabled.'}</div>`;
   $('feed').innerHTML = snap.feed.map((f) => `
@@ -118,6 +120,19 @@ function render() {
 
 $('sort').value = sortBy;
 $('sort').onchange = (e) => { sortBy = e.target.value; store.set('dash.sort', sortBy); render(); };
+const FILTER_LABELS = { live: 'All live', waiting: 'Waiting', working: 'Working', idle: 'Idle', stale: 'Stale', stuck: 'Quiet? (part of Working)', ended: 'Ended', dismissed: 'Dismissed', all: 'All sessions' };
+let labelSig = '';
+function updateFilterLabels() {
+  const counts = Object.keys(FILTER_LABELS).map((k) => snap.sessions.filter(filters[k]).length);
+  const sig = counts.join(',');
+  if (sig === labelSig) return;
+  labelSig = sig;
+  Object.keys(FILTER_LABELS).forEach((k, i) => {
+    const o = $('filter').querySelector(`option[value="${k}"]`);
+    if (o) o.textContent = `${FILTER_LABELS[k]} · ${counts[i]}`;
+  });
+  $('gLive').label = `Live · ${counts[0]} = waiting + working + idle + stale`;
+}
 $('filter').value = filterBy;
 $('filter').onchange = (e) => { filterBy = e.target.value; store.set('dash.filter', filterBy); render(); };
 $('q').oninput = (e) => { query = e.target.value; render(); };
