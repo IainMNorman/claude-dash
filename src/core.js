@@ -7,6 +7,32 @@ function detail(tool, input = {}) {
   return String(v).slice(0, 120);
 }
 
+const DONE_STATUS = /^(completed|complete|done|failed|error|killed|stopped|cancelled|canceled)$/i;
+
+function reconcile(s, list, t) {
+  const kids = s.children;
+  const listed = new Set();
+  for (const b of list) {
+    if (!b || !b.id) continue;
+    listed.add(String(b.id));
+    const kind = b.type === 'subagent' ? 'subagent' : 'shell';
+    let c = kids.find((k) => k.id === String(b.id));
+    if (!c && kind === 'shell') c = kids.find((k) => k.kind === 'shell' && !k.id && k.status !== 'done');
+    if (c && !c.id) c.id = String(b.id);
+    if (!c) {
+      c = { kind, id: String(b.id), toolUseId: null, desc: String(b.description || b.command || '').slice(0, 160), type: b.agent_type || b.type || '', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' };
+      kids.push(c);
+    }
+    if (DONE_STATUS.test(b.status || '')) { if (c.status !== 'done') { c.status = 'done'; c.endedAt = t; } }
+  }
+  const hasShell = list.some((b) => b && b.type !== 'subagent');
+  for (const c of kids) {
+    if (c.status === 'done') continue;
+    if (c.id && !listed.has(c.id)) { c.status = 'done'; c.endedAt = t; c.tool = null; c.toolDetail = ''; }
+    else if (!c.id && c.kind === 'shell' && !hasShell && t - c.startedAt > 15000) { c.status = 'done'; c.endedAt = t; }
+  }
+}
+
 class Store {
   constructor({ staleMs = 10 * 60 * 1000, feedSize = 200, now = Date.now } = {}) {
     this.sessions = new Map();
@@ -59,15 +85,24 @@ class Store {
         const d = detail(ev.tool_name, ev.tool_input);
         if (child) { child.tool = ev.tool_name || null; child.toolDetail = d; child.status = 'running'; child.lastEvent = t; break; }
         s.tool = ev.tool_name || null; s.toolDetail = d; s.toolCount++;
+        if (ev.tool_name === 'Bash' && ev.tool_input && ev.tool_input.run_in_background) {
+          kids.push({ kind: 'shell', id: null, toolUseId: ev.tool_use_id || null, desc: String(ev.tool_input.description || ev.tool_input.command || '').slice(0, 160), type: 'shell', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' });
+        }
         if (SUBAGENT_TOOLS.has(ev.tool_name)) {
           const i = ev.tool_input || {};
-          kids.push({ id: null, toolUseId: ev.tool_use_id || null, desc: String(i.description || '').slice(0, 120), type: i.subagent_type || '', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' });
+          kids.push({ kind: 'subagent', id: null, toolUseId: ev.tool_use_id || null, desc: String(i.description || '').slice(0, 120), type: i.subagent_type || '', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' });
         }
         break;
       }
       case 'PostToolUse': {
         if (child) { child.tool = null; child.toolDetail = ''; child.lastEvent = t; break; }
         s.tool = null; s.toolDetail = '';
+        if (ev.tool_name === 'Bash' && ev.tool_input && ev.tool_input.run_in_background) {
+          const c = findChild(ev.tool_use_id);
+          const r = ev.tool_response || {};
+          const sid = r.backgroundTaskId || r.shellId || r.bash_id || r.bashId || r.task_id || r.taskId;
+          if (c && sid) c.id = String(sid);
+        }
         if (SUBAGENT_TOOLS.has(ev.tool_name)) {
           const c = findChild(ev.tool_use_id);
           const r = ev.tool_response || {};
@@ -86,7 +121,7 @@ class Store {
       }
       case 'SubagentStop': {
         let c = findChild(ev.agent_id) || kids.find((k) => k.status !== 'done' && !k.id);
-        if (!c) { c = { id: ev.agent_id || null, toolUseId: null, desc: '', type: ev.agent_type || '', status: 'done', startedAt: t, lastEvent: t, tool: null, toolDetail: '' }; kids.push(c); }
+        if (!c) { c = { kind: 'subagent', id: ev.agent_id || null, toolUseId: null, desc: '', type: ev.agent_type || '', status: 'done', startedAt: t, lastEvent: t, tool: null, toolDetail: '' }; kids.push(c); }
         if (!c.id && ev.agent_id) c.id = ev.agent_id;
         if (!c.type && ev.agent_type) c.type = ev.agent_type;
         c.status = 'done'; c.endedAt = t; c.tool = null; c.toolDetail = ''; c.message = '';
@@ -101,6 +136,7 @@ class Store {
       default:
         break;
     }
+    if (Array.isArray(ev.background_tasks)) reconcile(s, ev.background_tasks, t);
     if (s.state === 'waiting' && !kids.some((c) => c.status === 'waiting') && name !== 'Notification') s.message = '';
     s.subagents = kids.filter((c) => c.status !== 'done').length;
     if (kids.length > 60) {

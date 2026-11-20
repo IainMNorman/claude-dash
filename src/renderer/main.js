@@ -57,7 +57,7 @@ function childRow(c, now) {
   const what = c.status === 'waiting' ? c.message || 'needs you' : c.tool ? `${c.tool} ${c.toolDetail}` : '';
   return `<div class="child ${c.status}">
     <span class="dot"></span>
-    <span class="cd">${esc(c.desc || c.type || 'subagent')}${c.type && c.desc ? ` <span class="mut">${esc(c.type)}</span>` : ''}${what ? `<div class="tool sm">${esc(what)}</div>` : ''}</span>
+    <span class="cd">${c.kind === 'shell' ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span> <span class="mut">background shell</span>` : `${esc(c.desc || c.type || 'subagent')}${c.type && c.desc ? ` <span class="mut">${esc(c.type)}</span>` : ''}`}${what ? `<div class="tool sm">${esc(what)}</div>` : ''}</span>
     <span class="mut">${c.status === 'waiting' ? 'needs you · ' : ''}${dur(end - c.startedAt)}</span>
   </div>`;
 }

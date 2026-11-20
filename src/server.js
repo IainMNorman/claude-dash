@@ -10,7 +10,7 @@ const PORT_FILE =path.join(os.homedir(), '.claude', 'dashboard.port');
 
 function isChildEvent(ev) {
   const n = ev.hook_event_name;
-  return n === 'SubagentStop' || n === 'SubagentStart' || ev.tool_name === 'Task' || ev.tool_name === 'Agent' || !!(ev.tool_input && ev.tool_input.run_in_background);
+  return n === 'SubagentStop' || n === 'SubagentStart' || ev.tool_name === 'Task' || ev.tool_name === 'Agent' || !!(ev.tool_input && ev.tool_input.run_in_background) || (Array.isArray(ev.background_tasks) && ev.background_tasks.some((b) => b && b.type !== 'subagent'));
 }
 
 function createServer(store, { staticDir } = {}) {

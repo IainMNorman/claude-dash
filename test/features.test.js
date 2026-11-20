@@ -142,3 +142,42 @@ test('attention: notifies on new waiting only, not on first load or repeats', ()
   store.setFlag('s1', 'dismissed', true);
   assert.equal(att.check(store.snapshot()).count, 0);
 });
+
+test('background shell: pre/post capture id; reconcile marks it done when it leaves the list', () => {
+  const { store } = mk();
+  store.ingest(ev('PreToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { command: 'sleep 99', run_in_background: true } }));
+  store.ingest(ev('PostToolUse', { tool_name: 'Bash', tool_use_id: 'b1', tool_input: { run_in_background: true }, tool_response: { backgroundTaskId: 'sh1' } }));
+  const s = store.sessions.get('s1');
+  assert.equal(s.children[0].kind, 'shell');
+  assert.equal(s.children[0].id, 'sh1');
+  store.ingest(ev('SubagentStop', { agent_id: 'zz', background_tasks: [{ id: 'sh1', type: 'shell', status: 'running', description: 'sleep 99' }] }));
+  assert.equal(s.children.find((c) => c.id === 'sh1').status, 'running');
+  store.ingest(ev('SubagentStop', { agent_id: 'zz2', background_tasks: [] }));
+  assert.equal(s.children.find((c) => c.id === 'sh1').status, 'done');
+});
+
+test('reconcile creates unknown tasks and honours finished statuses', () => {
+  const { store } = mk();
+  store.ingest(ev('SubagentStop', { agent_id: 'x', background_tasks: [
+    { id: 'a9', type: 'subagent', status: 'running', description: 'M7', agent_type: 'general-purpose' },
+    { id: 'sh2', type: 'shell', status: 'completed', description: 'npm test' },
+  ] }));
+  const kids = store.sessions.get('s1').children;
+  const a = kids.find((c) => c.id === 'a9');
+  const sh = kids.find((c) => c.id === 'sh2');
+  assert.equal(a.status, 'running');
+  assert.equal(a.kind, 'subagent');
+  assert.equal(sh.status, 'done');
+  assert.equal(sh.kind, 'shell');
+});
+
+test('id-less shell is closed when a task list arrives with no shells after 15s', () => {
+  const { store, tick } = mk();
+  store.ingest(ev('PreToolUse', { tool_name: 'Bash', tool_use_id: 'b2', tool_input: { command: 'x', run_in_background: true } }));
+  tick(5000);
+  store.ingest(ev('Notification', { notification_type: 'idle_prompt', background_tasks: [] }));
+  assert.equal(store.sessions.get('s1').children[0].status, 'running');
+  tick(11000);
+  store.ingest(ev('Notification', { notification_type: 'idle_prompt', background_tasks: [] }));
+  assert.equal(store.sessions.get('s1').children[0].status, 'done');
+});

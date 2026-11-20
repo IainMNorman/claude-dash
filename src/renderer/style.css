@@ -63,3 +63,5 @@ body.drawer-open:not(.drawer-pinned) .feed{max-height:none}
 
 main h2 select:first-of-type{margin-left:auto}
 h1{white-space:nowrap}
+
+.child .sh{font-family:ui-monospace,Menlo,monospace}
