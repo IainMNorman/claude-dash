@@ -1,13 +1,21 @@
 import { createMenu } from './menu.js';
+import { icon, STATE_ICON } from './icons.js';
 import { neededColumns, foldCols, placeUnplaced, orderFor, dropIndex, columnAt, chooseColumns } from './arrange.js';
 
 if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron');
 
 let snap = { sessions: [], feed: [], now: Date.now() };
 const $ = (id) => document.getElementById(id);
+$('drawerBtn').innerHTML = icon('list') + 'Activity';
+$('pinBtn').innerHTML = icon('pin');
+$('closeBtn').innerHTML = icon('x');
+$('q').insertAdjacentHTML('beforebegin', icon('search', 'qico'));
+$('filterDd').insertAdjacentHTML('beforebegin', icon('filter', 'ddico'));
+$('sortDd').insertAdjacentHTML('beforebegin', icon('sort', 'ddico'));
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const PREF_KEYS = { 'dash.sort': 'sort', 'dash.filter': 'filter', 'dash.cols': 'cols', 'dash.drawer': 'drawer', 'dash.pinned': 'pinned' };
 let localTouch = 0;
+const FEED_ICON = { PreToolUse: 'wrench', SessionStart: 'play', SessionEnd: 'flag', Stop: 'check', SubagentStop: 'bot', Notification: 'bell', UserPromptSubmit: 'list' };
 const store = {
   get(k, d) { try { return localStorage.getItem(k) || d; } catch { return d; } },
   set(k, v, persist = true) {
@@ -72,7 +80,7 @@ function childRow(c, now) {
   const shell = c.kind === 'shell';
   const label = c.status === 'waiting' ? 'needs you' : c.status;
   const showType = !shell && c.type && c.type !== 'general-purpose';
-  const title = shell ? `<span class="sh">$ ${esc(c.desc || 'shell')}</span>` : esc(c.desc || (showType ? c.type : 'subagent'));
+  const title = icon(shell ? 'terminal' : 'bot') + (shell ? `<span class="sh">${esc(c.desc || 'shell')}</span>` : esc(c.desc || (showType ? c.type : 'subagent')));
   const badge = showType && c.desc ? ` <span class="ctype">${esc(c.type)}</span>` : shell ? ' <span class="ctype">shell</span>' : '';
   return `<div class="child ${c.status} ${shell ? 'shell' : ''}">
     <div class="ctop"><span class="ct">${title}${badge}</span><span class="cb">${label} · ${dur(end - c.startedAt)}</span></div>
@@ -147,7 +155,7 @@ function gitLine(g) {
   if (g.behind) bits.push(`↓${g.behind}`);
   if (g.conflicts) bits.push(`⚠${g.conflicts}`);
   const state = bits.length ? bits.join(' ') : 'clean';
-  return `<div class="git mut">⎇ <b>${esc(g.branch || 'detached')}</b>${g.worktree ? ` <span class="wt">worktree ${esc(g.worktreeName)}</span>` : ''} · ${esc(g.repo)} · <span class="${g.changed || g.untracked ? 'dirty' : ''}">${state}</span></div>`;
+  return `<div class="git mut">${icon('branch')}<b>${esc(g.branch || 'detached')}</b>${g.worktree ? ` <span class="wt">worktree ${esc(g.worktreeName)}</span>` : ''} · ${esc(g.repo)} · <span class="${g.changed || g.untracked ? 'dirty' : ''}">${state}</span></div>`;
 }
 
 function card(s, now) {
@@ -160,8 +168,8 @@ function card(s, now) {
   return `
     <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
       <div class="top">
-        <span class="proj">${sortBy === 'manual' ? '<span class="grip" draggable="true" title="Drag to move">⠿</span>' : ''}${s.pinned ? '📌 ' : ''}${esc(s.title || s.project)}</span>
-        <span class="badge">${badge} · ${dur(now - s.stateSince)}</span>
+        <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
+        <span class="badge">${icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}${badge} · ${dur(now - s.stateSince)}</span>
       </div>
       <div class="mut">${s.title ? esc(s.project) + ' · ' : ''}${esc(s.cwd)} · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</div>
       ${gitLine(s.git)}
@@ -173,9 +181,9 @@ function card(s, now) {
       ${shells.length ? shellGroup(s.id, shells, now) : ''}
       ${done.length ? `<details class="fin" data-id="${esc(s.id)}"${openFinished.has(s.id) ? ' open' : ''}><summary>${done.length} finished</summary><div class="kids">${done.slice().reverse().map((c) => childRow(c, now)).join('')}</div></details>` : ''}
       <div class="acts">
-        ${s.link ? `<a href="${esc(s.link)}" data-act="open">Open</a>` : ''}
-        <button data-act="pin" type="button">${s.pinned ? 'Unpin' : 'Pin'}</button>
-        <button data-act="dismiss" type="button">${s.dismissed ? 'Restore' : 'Dismiss'}</button>
+        ${s.link ? `<a href="${esc(s.link)}" data-act="open">${icon('open')}Open</a>` : ''}
+        <button data-act="pin" type="button">${icon('pin')}${s.pinned ? 'Unpin' : 'Pin'}</button>
+        <button data-act="dismiss" type="button" class="quiet">${icon(s.dismissed ? 'undo' : 'x')}${s.dismissed ? 'Restore' : 'Dismiss'}</button>
       </div>
     </div>`;
 }
@@ -197,7 +205,7 @@ function render() {
   const list = visible();
   drawCards(list, now, 0);
   $('feed').innerHTML = snap.feed.map((f) => `
-    <div class="row${f.child ? ' kid' : ''}"><span class="mut">${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
+    <div class="row${f.child ? ' kid' : ''}"><span class="mut">${icon(FEED_ICON[f.event] || 'wrench')}${new Date(f.t).toLocaleTimeString([], { hour12: false })}</span>
     <span class="rt" title="${esc(f.text || f.event)}"><b>${esc(f.project)}</b> ${esc(f.event === 'PreToolUse' ? f.text : f.event + (f.text ? ' · ' + f.text : ''))}</span></div>`).join('');
 }
 
@@ -273,7 +281,7 @@ function applyDrawer(persist = true) {
   $('drawerBtn').classList.toggle('on', drawerOpen);
   $('drawerBtn').setAttribute('aria-expanded', String(drawerOpen));
   $('pinBtn').classList.toggle('on', drawerPinned);
-  $('pinBtn').textContent = drawerPinned ? 'Pinned' : 'Pin';
+  $('pinBtn').title = drawerPinned ? 'Unpin drawer' : 'Pin drawer open';
   store.set('dash.drawer', drawerOpen ? 'open' : 'closed', persist);
   store.set('dash.pinned', drawerPinned ? 'pinned' : 'floating', persist);
 }

@@ -3,7 +3,7 @@
 @font-face{font-family:'Anthropic Serif';src:url(/fonts/AnthropicSerif-Romans-Variable-25x258.ttf);font-weight:100 900}
 
 :root{--bg:#1f1f1e;--panel:#2b2b29;--line:rgba(255,255,255,.09);--fg:#ececea;--mut:#a09f98;--work:#6ea0d6;--wait:#e0805f;--idle:#8fb078;--stale:#77766f;--end:#55544f;--accent:#d97757;--hover:rgba(255,255,255,.07)}
-@media (prefers-color-scheme: light){:root{--bg:#fff;--panel:#f6f5f1;--line:rgba(0,0,0,.09);--fg:#1c1c1b;--mut:#76756e;--work:#3f7cc0;--wait:#c6613f;--idle:#5f8a45;--stale:#a5a49b;--end:#c9c8c0;--hover:rgba(0,0,0,.055)}}
+@media (prefers-color-scheme: light){:root{--bg:#fff;--panel:#f4f3ee;--line:rgba(0,0,0,.09);--fg:#1c1c1b;--mut:#6f6e68;--work:#3f7cc0;--wait:#c6613f;--idle:#5f8a45;--stale:#a5a49b;--end:#c9c8c0;--hover:rgba(0,0,0,.055)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 'Anthropic Sans',-apple-system,system-ui,sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
@@ -198,3 +198,42 @@ main h2 input,main h2 select{background:var(--hover);color:var(--fg)}
 .card.pinned{box-shadow:inset 0 0 0 1px var(--line)}
 body.drawer-open:not(.drawer-pinned) aside{box-shadow:-8px 0 28px rgba(0,0,0,.12);border-left:1px solid var(--line)}
 .electron header{height:52px;padding:0 20px 0 84px}
+.ico{width:14px;height:14px;flex:none;vertical-align:-2px}
+.badge .ico{width:13px;height:13px;color:var(--c)}
+.badge::before{display:none}
+.st-working{animation:spin 1.1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.st-working{animation:none}}
+.acts a,.acts button,.hbtn{display:inline-flex;gap:6px;align-items:center}
+.acts .quiet{margin-left:auto}
+.git .ico{margin-right:4px}
+.child .ct{display:inline-flex;gap:6px;align-items:center}
+.child .ct .ico{color:var(--mut)}
+.pinned-ico{margin-right:6px;color:var(--work)}
+.grip .ico{width:12px;height:14px;margin-right:2px}
+.qico,.ddico{color:var(--mut);margin-left:6px;margin-right:-2px}
+.row{grid-template-columns:76px minmax(0,1fr)}
+.row>.mut{display:flex;gap:6px;align-items:center}
+.hbtn .ico{margin:0}
+/* closer to Claude desktop: larger, darker, hairline surfaces */
+body{font-size:14px}
+.mut{font-size:12.5px;color:var(--mut)}
+.card{background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);border-radius:12px}
+.card.waiting{background:color-mix(in srgb,var(--wait) 7%,var(--bg))}
+.child{background:var(--panel)}
+.feed{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.burn{background:var(--panel)}
+.tleg,.ctx,.cb,.badge{font-size:12px}
+.act{font-size:13px;color:var(--fg);opacity:.75}
+/* Claude desktop menu */
+.ddmenu{min-width:240px;padding:8px 0;border:0;border-radius:14px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 0 0 .5px rgba(0,0,0,.14),0 12px 40px rgba(0,0,0,.18)}
+.ddgroup+.ddgroup{border-top:1px solid var(--line);margin:6px 14px 0;padding-top:6px}
+.ddgroup{padding:0}
+.ddhead{font-size:12px;padding:4px 14px 2px;color:var(--mut);font-weight:500}
+.dditem{font-size:14px;padding:6px 14px 6px 12px;border-radius:0;margin:0;width:100%}
+.ddgroup .dditem{padding-left:12px}
+.dditem.sub{padding-left:30px}
+.dditem:hover,.dditem:focus-visible{background:var(--hover)}
+.dditem .ddn{font-size:13px}
+.ddbtn{border-radius:8px;font-size:13px;padding:5px 10px}
+.ddbtn[aria-expanded=true]{background:var(--hover)}

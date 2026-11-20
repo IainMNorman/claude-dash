@@ -68,6 +68,8 @@ export function createMenu(root, { prefix, groups, getValue, onSelect, count }) 
   function show() {
     open = true;
     menu.hidden = false;
+    menu.style.right = ''; menu.style.left = '';
+    if (menu.getBoundingClientRect().left < 8) { menu.style.left = '0'; menu.style.right = 'auto'; }
     btn.setAttribute('aria-expanded', 'true');
     refresh();
     const sel = menu.querySelector('.dditem.on') || items()[0];
