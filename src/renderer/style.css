@@ -300,3 +300,7 @@ main h2 .dd:first-of-type{margin-left:0}
 .fico{margin-left:auto}
 .fico{margin-left:0}
 .qico{margin-left:auto}
+main h2{gap:6px}
+.qico,.ddico{margin:0 -2px 0 6px}
+.qico{margin-left:auto}
+.fico{margin-left:16px}
