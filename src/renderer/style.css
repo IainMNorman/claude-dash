@@ -278,3 +278,5 @@ h1,.ddbtn,.ddbtn *,.hbtn,.acts a,.acts button{font-weight:400}
 .tk:hover .pop,.tk:focus-visible .pop{display:grid}
 .pop div{display:flex;gap:8px;align-items:center}.pop span{flex:1}.pop b{font-variant-numeric:tabular-nums}
 .pop i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.badge .ctype{margin-left:4px}
+.badge .need{font-weight:480}

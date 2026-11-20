@@ -176,8 +176,8 @@ function card(s, now) {
   return `
     <div class="card ${s.displayState}${s.stuck ? ' stuck' : ''}${s.pinned ? ' pinned' : ''}" data-id="${esc(s.id)}">
       <div class="top">
-        <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}${modelTag(s.model, s.effort)}</span>
-        <span class="badge">${s.displayState === 'working' ? '<span class="sdot"></span>' : icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}${badge} · ${dur(now - s.stateSince)}</span>
+        <span class="proj">${sortBy === 'manual' ? `<span class="grip" draggable="true" title="Drag to move">${icon('grip')}</span>` : ''}${s.pinned ? icon('pin', 'pinned-ico') : ''}${esc(s.title || s.project)}</span>
+        <span class="badge" title="${badge} · ${dur(now - s.stateSince)}">${s.displayState === 'working' ? '<span class="sdot"></span>' : icon(STATE_ICON[s.displayState] || 'check', 'st-' + s.displayState)}${s.displayState === 'waiting' || s.stuck ? `<span class="need">${badge}</span>` : ''}${modelTag(s.model, s.effort)}</span>
       </div>
       <div class="meta">${gitLine(s.git) || '<div></div>'}<div class="mut path" title="${esc(s.cwd)}"><span>${esc(shortPath(s.cwd))}</span><span class="nw"> · ${s.toolCount} tools · up ${dur(now - s.startedAt)}</span></div></div>
       ${tk ? tokenBlock(tk, s.cost) : costLine(s.cost)}
