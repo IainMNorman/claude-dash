@@ -1,7 +1,11 @@
-:root{--bg:#111315;--panel:#1a1d20;--line:#2a2e33;--fg:#e6e8ea;--mut:#8a9199;--work:#4da3ff;--wait:#ffb020;--idle:#4cc38a;--stale:#6b7280;--end:#444}
-@media (prefers-color-scheme: light){:root{--bg:#f5f6f7;--panel:#fff;--line:#dde0e4;--fg:#1c1f23;--mut:#6b737b;--stale:#9aa1a9;--end:#bbb}}
+@font-face{font-family:'Anthropic Sans';src:url(/fonts/AnthropicSans-Romans-Variable-25x258.ttf);font-weight:100 900}
+@font-face{font-family:'Anthropic Sans';src:url(/fonts/AnthropicSans-Italics-Variable-25x258.ttf);font-weight:100 900;font-style:italic}
+@font-face{font-family:'Anthropic Serif';src:url(/fonts/AnthropicSerif-Romans-Variable-25x258.ttf);font-weight:100 900}
+h1,.proj{font-family:'Anthropic Serif',Georgia,serif}
+:root{--bg:#262624;--panel:#30302e;--line:#3d3d3a;--fg:#faf9f5;--mut:#9c9a92;--work:#6a9bcc;--wait:#d97757;--idle:#8fa571;--stale:#73726c;--end:#4a4944;--accent:#d97757}
+@media (prefers-color-scheme: light){:root{--bg:#faf9f5;--panel:#fff;--line:#e8e6dc;--fg:#141413;--mut:#6b6a63;--work:#4f82b0;--wait:#c6613f;--idle:#788c5d;--stale:#a8a69c;--end:#c9c7bc;--accent:#d97757}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 'Anthropic Sans',-apple-system,system-ui,sans-serif}
 header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
 h1{font-size:16px;margin:0;flex:1}
 .stat{color:var(--mut)}.stat b{color:var(--fg)}

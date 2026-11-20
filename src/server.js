@@ -85,6 +85,11 @@ function createServer(store, { staticDir } = {}) {
       req.on('close', () => clients.delete(res));
       return;
     }
+    if (req.method === 'GET' && url.pathname.startsWith('/fonts/')) {
+      const f = path.join('/Applications/Claude.app/Contents/Resources/fonts', path.basename(url.pathname));
+      if (fs.existsSync(f)) { res.writeHead(200, { 'content-type': 'font/ttf', 'cache-control': 'max-age=86400' }); return fs.createReadStream(f).pipe(res); }
+      res.writeHead(404); return res.end();
+    }
     if (req.method === 'GET' && staticDir) {
       const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
       const file = path.resolve(staticDir, rel);
