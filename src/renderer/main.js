@@ -7,11 +7,29 @@ function dur(ms) {
   if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
   return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
 }
+let sortBy = 'status';
+try { sortBy = localStorage.getItem('dash.sort') || 'status'; } catch {}
+const sorters = {
+  status: null,
+  latest: (a, b) => b.lastEvent - a.lastEvent,
+  name: (a, b) => a.project.localeCompare(b.project) || b.lastEvent - a.lastEvent,
+};
+function sorted() {
+  const fn = sorters[sortBy];
+  return fn ? [...snap.sessions].sort(fn) : snap.sessions;
+}
+$('sort').value = sortBy;
+$('sort').onchange = (e) => {
+  sortBy = e.target.value;
+  try { localStorage.setItem('dash.sort', sortBy); } catch {}
+  render();
+};
+
 function render() {
   const now = snap.now;
   const by = (st) => snap.sessions.filter((s) => s.displayState === st).length;
   $('stats').innerHTML = `<b>${by('working')}</b> working · <b>${by('waiting')}</b> waiting · <b>${by('idle')}</b> idle`;
-  $('cards').innerHTML = snap.sessions.length ? snap.sessions.map((s) => `
+  $('cards').innerHTML = snap.sessions.length ? sorted().map((s) => `
     <div class="card ${s.displayState}">
       <div class="top"><span class="proj">${esc(s.project)}</span><span class="badge">${s.displayState} · ${dur(now - s.stateSince)}</span></div>
       <div class="mut">${esc(s.cwd)} · ${s.toolCount} tools${s.subagents ? ` · ${s.subagents} subagent${s.subagents > 1 ? 's' : ''}` : ''} · up ${dur(now - s.startedAt)}</div>

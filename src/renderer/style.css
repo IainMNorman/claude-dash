@@ -25,3 +25,5 @@ main h2{font-size:13px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;
 .row>span:last-child{min-width:0}
 .row .d{color:var(--mut);white-space:pre-wrap;overflow-wrap:anywhere}
 .empty{color:var(--mut);padding:40px;text-align:center}
+
+main h2 select{float:right;font:inherit;font-size:12px;text-transform:none;letter-spacing:0;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
