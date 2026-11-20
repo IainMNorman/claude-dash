@@ -512,9 +512,16 @@ function syncPrefs(p) {
 
 let es;
 let timer;
+function setConn(ok) {
+  const el = $('conn');
+  el.textContent = '';
+  el.className = `conn ${ok ? 'ok' : 'down'}`;
+  el.title = ok ? 'Connected: updates stream in live' : 'Reconnecting to the dashboard server…';
+}
+
 function connect() {
   es = new EventSource('/api/stream');
-  es.onopen = () => { $('conn').textContent = 'live'; };
+  es.onopen = () => setConn(true);
   es.onmessage = (m) => {
     snap = JSON.parse(m.data);
     syncPrefs(snap.prefs || {});
@@ -524,7 +531,7 @@ function connect() {
     }
     render();
   };
-  es.onerror = () => { $('conn').textContent = 'reconnecting…'; };
+  es.onerror = () => setConn(false);
 }
 connect();
 timer = setInterval(() => { snap.now = Date.now(); render(); }, 1000);

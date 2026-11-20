@@ -304,3 +304,7 @@ main h2{gap:6px}
 .qico,.ddico{margin:0 -2px 0 6px}
 .qico{margin-left:auto}
 .fico{margin-left:16px}
+.conn{width:8px;height:8px;border-radius:50%;background:var(--stale);flex:none;margin:0 4px}
+.conn.ok{background:var(--idle)}
+.conn.down{background:var(--wait);animation:blink 1.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.conn.down,.adot{animation:none}}
