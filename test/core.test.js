@@ -138,3 +138,12 @@ test('agent/notification pseudo-prompts do not overwrite the last real prompt', 
   st.ingest({ hook_event_name: 'UserPromptSubmit', session_id: 'p1', cwd: '/x', prompt: '<task-notification><task-id>1</task-id></task-notification>' });
   assert.equal(st.sessions.get('p1').prompt, 'real ask');
 });
+
+test('hydrate drops a stored pseudo-prompt but keeps a real one', () => {
+  const { Store } = require('../src/core');
+  const st = new Store();
+  const base = { cwd: '/x', state: 'idle', startedAt: 1, lastEvent: 1, stateSince: 1, toolCount: 0 };
+  st.hydrate({ version: 1, sessions: [{ ...base, id: 'a', project: 'a', prompt: '<agent-message from="x">hi</agent-message>' }, { ...base, id: 'b', project: 'b', prompt: 'real' }] });
+  assert.equal(st.sessions.get('a').prompt, '');
+  assert.equal(st.sessions.get('b').prompt, 'real');
+});

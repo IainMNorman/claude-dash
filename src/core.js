@@ -34,7 +34,10 @@ function reconcile(s, list, t) {
   }
 }
 
+const PSEUDO_PROMPT = /^\s*<(agent-message|task-notification|system-reminder|command-)/;
+
 function normalise(s) {
+  if (s && PSEUDO_PROMPT.test(String(s.prompt || ''))) s.prompt = '';
   if (!Array.isArray(s.children)) s.children = [];
   if (typeof s.pinned !== 'boolean') s.pinned = false;
   if (typeof s.dismissed !== 'boolean') s.dismissed = false;
@@ -96,7 +99,7 @@ class Store {
         set('idle'); break;
       case 'UserPromptSubmit':
         set('working');
-        if (!/^\s*<(agent-message|task-notification|system-reminder|command-)/.test(String(ev.prompt || ''))) s.prompt = String(ev.prompt || '').slice(0, 200);
+        if (!PSEUDO_PROMPT.test(String(ev.prompt || ''))) s.prompt = String(ev.prompt || '').slice(0, 200);
         s.message = ''; break;
       case 'PreToolUse': {
         set('working'); s.message = '';
