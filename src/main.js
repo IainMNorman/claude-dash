@@ -49,7 +49,7 @@ function updateTray() {
   if (app.dock) app.dock.setBadge(count ? String(count) : '');
   if (fresh.length && store.prefs.sound !== 'off') execFile('afplay', ['/System/Library/Sounds/Glass.aiff'], () => {});
   for (const item of fresh) {
-    const n = new Notification({ title: `${item.who} needs you`, body: item.message || 'Waiting for your input', silent: false });
+    const n = new Notification({ title: `${item.who} needs you`, body: item.message || 'Waiting for your input', silent: true });
     n.on('click', () => {
       if (item.session.link) shell.openExternal(item.session.link);
       else { win.show(); win.focus(); }
