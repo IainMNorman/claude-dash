@@ -19,7 +19,7 @@ Live dashboard for Claude Code sessions on this machine. Hooks POST events to a 
    let s={};try{s=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}
    const cmd=process.env.HOME+"/git/claude-dash/plugin/hooks/post.sh";
    s.hooks=s.hooks||{};
-   for(const e of ["SessionStart","UserPromptSubmit","PreToolUse","PostToolUse","Notification","Stop","SubagentStop","SessionEnd"]){
+   for(const e of ["SessionStart","UserPromptSubmit","PreToolUse","PostToolUse","Notification","PermissionRequest","Stop","SubagentStop","SessionEnd"]){
      const a=s.hooks[e]=s.hooks[e]||[];
      if(JSON.stringify(a).includes("claude-dash"))continue;
      const g={hooks:[{type:"command",command:cmd}]};

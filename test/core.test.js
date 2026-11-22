@@ -147,3 +147,28 @@ test('hydrate drops a stored pseudo-prompt but keeps a real one', () => {
   assert.equal(st.sessions.get('a').prompt, '');
   assert.equal(st.sessions.get('b').prompt, 'real');
 });
+
+test('AskUserQuestion marks the session waiting until its tool result arrives', () => {
+  const { store } = mk();
+  store.ingest(ev('UserPromptSubmit', { prompt: 'go' }));
+  store.ingest(ev('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Which option?' }] } }));
+  let s = store.snapshot().sessions[0];
+  assert.equal(s.state, 'waiting');
+  assert.equal(s.message, 'Which option?');
+  store.ingest(ev('PostToolUse', { tool_name: 'AskUserQuestion', tool_input: {} }));
+  s = store.snapshot().sessions[0];
+  assert.equal(s.state, 'working');
+  assert.equal(s.message, '');
+});
+
+test('PermissionRequest waits; PostToolUse resumes working', () => {
+  const { store } = mk();
+  store.ingest(ev('UserPromptSubmit', { prompt: 'go' }));
+  store.ingest(ev('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'rm x' } }));
+  let s = store.snapshot().sessions[0];
+  assert.equal(s.state, 'waiting');
+  assert.match(s.message, /Permission to use Bash/);
+  store.ingest(ev('PostToolUse', { tool_name: 'Bash', tool_input: {} }));
+  s = store.snapshot().sessions[0];
+  assert.equal(s.state, 'working');
+});

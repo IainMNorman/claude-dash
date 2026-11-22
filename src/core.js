@@ -34,6 +34,8 @@ function reconcile(s, list, t) {
   }
 }
 
+const ASKS = new Set(['AskUserQuestion', 'ExitPlanMode']);
+const askText = (i) => { const q = i && Array.isArray(i.questions) && i.questions[0]; return String((q && q.question) || 'Has a question for you').slice(0, 200); };
 const PSEUDO_PROMPT = /^\s*<(agent-message|task-notification|system-reminder|command-)/;
 
 function normalise(s) {
@@ -106,7 +108,9 @@ class Store {
         const d = detail(ev.tool_name, ev.tool_input);
         const act = summarise(ev.tool_name, ev.tool_input);
         feedText = act;
-        if (child) { child.tool = ev.tool_name || null; child.toolDetail = d; child.activity = act; child.status = 'running'; child.lastEvent = t; break; }
+        const ask = ASKS.has(ev.tool_name);
+        if (ask) { const q = askText(ev.tool_input); set('waiting'); s.message = q; if (child) { child.status = 'waiting'; child.message = q; child.lastEvent = t; } }
+        if (child) { if (!ask) child.status = 'running'; child.tool = ev.tool_name || null; child.toolDetail = d; child.activity = act; child.lastEvent = t; break; }
         s.tool = ev.tool_name || null; s.toolDetail = d; s.activity = act; s.toolCount++;
         if (ev.tool_name === 'Bash' && ev.tool_input && ev.tool_input.run_in_background) {
           kids.push({ kind: 'shell', id: null, toolUseId: ev.tool_use_id || null, desc: String(ev.tool_input.description || ev.tool_input.command || '').slice(0, 160), type: 'shell', status: 'running', startedAt: t, lastEvent: t, tool: null, toolDetail: '' });
@@ -117,7 +121,14 @@ class Store {
         }
         break;
       }
+      case 'PermissionRequest': {
+        const m = `Permission to use ${ev.tool_name || 'a tool'}${detail(ev.tool_name, ev.tool_input) ? ': ' + detail(ev.tool_name, ev.tool_input) : ''}`.slice(0, 200);
+        if (child) { child.status = 'waiting'; child.message = m; child.lastEvent = t; }
+        set('waiting'); s.message = m; break;
+      }
       case 'PostToolUse': {
+        if (!child && s.state === 'waiting' && !kids.some((c) => c.status === 'waiting')) { set('working'); s.message = ''; }
+        if (ASKS.has(ev.tool_name)) { set('working'); s.message = ''; if (child) { child.status = 'running'; child.message = ''; } }
         if (child) { child.tool = null; child.toolDetail = ''; child.lastEvent = t; break; }
         s.tool = null; s.toolDetail = '';
         if (ev.tool_name === 'Bash' && ev.tool_input && ev.tool_input.run_in_background) {
@@ -160,7 +171,7 @@ class Store {
         break;
     }
     if (Array.isArray(ev.background_tasks)) reconcile(s, ev.background_tasks, t);
-    if (s.state === 'waiting' && !kids.some((c) => c.status === 'waiting') && name !== 'Notification') s.message = '';
+    if (s.state === 'waiting' && !kids.some((c) => c.status === 'waiting') && name !== 'Notification' && name !== 'PermissionRequest' && !(name === 'PreToolUse' && ASKS.has(ev.tool_name))) s.message = '';
     s.subagents = kids.filter((c) => c.status !== 'done').length;
     if (kids.length > 60) {
       const done = kids.filter((c) => c.status === 'done');
