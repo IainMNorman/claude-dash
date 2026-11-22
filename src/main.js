@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, Notification, shell, nativeTheme, screen } = require('electron');
 const path = require('node:path');
+const { execFile } = require('node:child_process');
 const { loadState, saveState, sanitize, STATE_FILE: WINDOW_FILE } = require('./windowstate');
 const WINDOW_DEFAULTS = { width: 980, height: 700 };
 const { Store } = require('./core');
@@ -46,6 +47,7 @@ function updateTray() {
   tray.setTitle(`${working}▶${waiting ? ` ${waiting}⏸` : ''}`);
   const { fresh, count } = attention.check(store.snapshot());
   if (app.dock) app.dock.setBadge(count ? String(count) : '');
+  if (fresh.length && store.prefs.sound !== 'off') execFile('afplay', ['/System/Library/Sounds/Glass.aiff'], () => {});
   for (const item of fresh) {
     const n = new Notification({ title: `${item.who} needs you`, body: item.message || 'Waiting for your input', silent: false });
     n.on('click', () => {
@@ -61,6 +63,7 @@ function buildAppMenu() {
     { role: 'appMenu' },
     { role: 'editMenu' },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { type: 'separator' }, { role: 'toggleDevTools' }] },
+    { label: 'Alerts', submenu: [{ label: 'Play sound when Claude needs you', type: 'checkbox', checked: store.prefs.sound !== 'off', click: (i) => store.setPref('sound', i.checked ? 'on' : 'off') }] },
     { role: 'windowMenu' },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));

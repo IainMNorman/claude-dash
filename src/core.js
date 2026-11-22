@@ -47,7 +47,7 @@ function normalise(s) {
   return s;
 }
 
-const PREF_KEYS = new Set(['sort', 'filter', 'cols', 'drawer', 'pinned']);
+const PREF_KEYS = new Set(['sort', 'filter', 'cols', 'drawer', 'pinned', 'sound']);
 
 class Store {
   constructor({ staleMs = 10 * 60 * 1000, feedSize = 200, now = Date.now } = {}) {
