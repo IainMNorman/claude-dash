@@ -400,11 +400,11 @@ $('cards').addEventListener('click', (e) => {
 });
 
 let toastTimer;
-function toast(text, undo) {
+function toast(text, undo, label = 'Undo') {
   const el = $('toast');
-  el.innerHTML = `<span></span><button type="button">Undo</button>`;
+  el.innerHTML = `<span></span>${undo ? '<button type="button"></button>' : ''}`;
   el.firstChild.textContent = text;
-  el.lastChild.onclick = () => { undo(); el.hidden = true; };
+  if (undo) { el.lastChild.textContent = label; el.lastChild.onclick = () => { undo(); el.hidden = true; }; }
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 7000);
@@ -604,6 +604,23 @@ function syncPrefs(p) {
   if (p.pinned && (p.pinned === 'pinned') !== drawerPinned) { drawerPinned = p.pinned === 'pinned'; drawerChanged = true; }
   if (drawerChanged) applyDrawer(false);
 }
+
+async function checkHooks() {
+  try {
+    const r = await (await fetch('/api/hooks')).json();
+    $('setup').hidden = !!r.installed;
+    $('setupBtn').textContent = r.missing && r.missing.length < 9 ? 'Repair hooks' : 'Install hooks';
+  } catch { /* server unreachable: leave as is */ }
+}
+$('setupBtn').onclick = async () => {
+  try {
+    const r = await (await fetch('/api/hooks', { method: 'POST', body: JSON.stringify({ action: 'install' }) })).json();
+    $('setup').hidden = !!r.installed;
+    toast(r.installed ? 'Hooks installed. Start a new Claude session to see it here.' : 'Could not install hooks.');
+  } catch { toast('Could not install hooks.'); }
+};
+checkHooks();
+setInterval(checkHooks, 30000);
 
 let es;
 let timer;

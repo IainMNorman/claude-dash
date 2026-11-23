@@ -324,3 +324,8 @@ main h2{gap:6px}
 .card[draggable=true]{user-select:none}
 .card[draggable=true] .prompt,.card[draggable=true] .act{user-select:text}
 .prompt.say{color:var(--fg);opacity:1}
+
+.setup{display:flex;align-items:center;gap:12px;margin:10px 20px 0;padding:9px 12px;border:1px solid var(--line,rgba(127,127,127,.25));border-radius:10px;background:var(--panel);font-size:13px}
+.setup[hidden]{display:none}
+.setup span{flex:1}
+.setup button{font:inherit;font-weight:500;color:#fff;background:var(--clay,#c96442);border:0;border-radius:8px;padding:4px 12px;cursor:pointer}

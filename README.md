@@ -1,34 +1,22 @@
 # claude-dash
 
+> Unofficial community project. Not affiliated with, endorsed by, or sponsored by Anthropic. "Claude" is a trademark of Anthropic.
+
 Live dashboard for Claude Code sessions on this machine. Hooks POST events to a local server; an Electron tray app (or any browser) shows them.
 
 ## Setup
 
-1. Install and run the dashboard:
+1. Install and run the dashboard (macOS; needs Node 20+):
    ```bash
-   git clone https://github.com/IainMNorman/claude-dash ~/git/claude-dash
-   cd ~/git/claude-dash && npm install && npm start
+   git clone <this-repo-url> claude-dash
+   cd claude-dash && npm install && npm start
    ```
    `npm start` builds the UI with Vite, then launches Electron. No Electron? `npm run headless`, then open http://127.0.0.1:47821.
-   Developing? `npm run dev` runs Vite with HMR for the UI (CSS/JS update without reload) and restarts Electron when `src/*.js` changes.
+   Developing? `npm run dev` runs Vite with HMR for the UI and restarts Electron when `src/*.js` changes.
 
-2. Add the hooks to `~/.claude/settings.json` (works for Claude desktop's Code tab and the CLI). Run once:
-   ```bash
-   node -e '
-   const fs=require("fs"),f=process.env.HOME+"/.claude/settings.json";
-   let s={};try{s=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}
-   const cmd=process.env.HOME+"/git/claude-dash/plugin/hooks/post.sh";
-   s.hooks=s.hooks||{};
-   for(const e of ["SessionStart","UserPromptSubmit","PreToolUse","PostToolUse","Notification","PermissionRequest","Stop","SubagentStop","SessionEnd"]){
-     const a=s.hooks[e]=s.hooks[e]||[];
-     if(JSON.stringify(a).includes("claude-dash"))continue;
-     const g={hooks:[{type:"command",command:cmd}]};
-     if(e.endsWith("ToolUse"))g.matcher="*";
-     a.push(g);
-   }
-   fs.writeFileSync(f,JSON.stringify(s,null,2)+"\n");'
-   ```
-   Alternative for a single CLI session: `claude --plugin-dir ~/git/claude-dash/plugin`.
+2. Install the hooks. On first launch the dashboard shows an **Install hooks** banner; click it. (Also available from the app menu: *Claude Hooks > Install Hooks*, or `npm run install-hooks` from the checkout.) This adds entries to `~/.claude/settings.json` (works for Claude desktop's Code tab and the CLI), keeping a one-time backup at `settings.json.bak-claude-dash`. Alternative for a single CLI session: `claude --plugin-dir <path-to-checkout>/plugin`.
+
+   If you move the checkout, click **Repair hooks** (or run `npm run install-hooks` again) to update the path.
 
 3. Start a **new** Claude session (hooks load at session start). It appears in the dashboard within seconds. If not, quit and reopen Claude desktop.
 
@@ -50,4 +38,15 @@ Live dashboard for Claude Code sessions on this machine. Hooks POST events to a 
 - The hook script fails silently if the dashboard isn't running, so Claude is never blocked.
 - Try it without real sessions: `npm run mock`.
 - Tests: `npm test`.
-- Remove: delete the `claude-dash` entries from `~/.claude/settings.json` hooks.
+- Remove: *Claude Hooks > Remove Hooks* in the app menu, or `npm run install-hooks -- --remove`.
+
+## Privacy and security
+
+- Everything stays on your machine. The server binds to `127.0.0.1` only, and nothing is sent anywhere. Session prompts, paths and transcripts are read locally and shown in the dashboard.
+- State files live in `~/.claude/` (`dashboard-state.json`, `dashboard.port`, `dashboard-debug.jsonl`).
+- Write endpoints (`/api/hooks`, `/api/open`, ...) reject requests from foreign browser origins.
+- UI fonts are loaded from an installed Claude desktop app if present, otherwise system fonts are used. No font files are bundled.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

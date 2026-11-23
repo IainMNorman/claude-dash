@@ -2,6 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const hooks = require('./hooks');
 
 const DEFAULT_PORT = 47821;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
@@ -13,7 +14,7 @@ function isChildEvent(ev) {
   return n === 'SubagentStop' || n === 'SubagentStart' || ev.tool_name === 'Task' || ev.tool_name === 'Agent' || !!(ev.tool_input && ev.tool_input.run_in_background) || (Array.isArray(ev.background_tasks) && ev.background_tasks.some((b) => b && b.type !== 'subagent'));
 }
 
-function createServer(store, { staticDir } = {}) {
+function createServer(store, { staticDir, settingsFile, hookScript } = {}) {
   const sampled = new Set();
   const clients = new Set();
   const push = () => {
@@ -59,6 +60,24 @@ function createServer(store, { staticDir } = {}) {
         } catch { /* ignore */ }
         res.writeHead(code).end();
       });
+      return;
+    }
+    if (url.pathname === '/api/hooks' && (req.method === 'GET' || req.method === 'POST')) {
+      const reply = (code, obj) => res.writeHead(code, { 'content-type': 'application/json' }).end(obj ? JSON.stringify(obj) : undefined);
+      const run = (action) => {
+        try {
+          const origin = req.headers.origin;
+          if (origin && new URL(origin).host !== req.headers.host) return reply(403);
+          if (action === 'install') return reply(200, hooks.install(settingsFile, hookScript));
+          if (action === 'uninstall') return reply(200, hooks.uninstall(settingsFile, hookScript));
+          if (action === 'status') return reply(200, hooks.status(settingsFile, hookScript));
+          reply(400);
+        } catch (e) { reply(500, { error: e.message }); }
+      };
+      if (req.method === 'GET') return run('status');
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 1e3) req.destroy(); });
+      req.on('end', () => { let a; try { a = JSON.parse(body).action; } catch { /* ignore */ } run(a); });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/prefs') {

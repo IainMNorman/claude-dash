@@ -63,6 +63,10 @@ function buildAppMenu() {
     { role: 'appMenu' },
     { role: 'editMenu' },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'forceReload' }, { type: 'separator' }, { role: 'toggleDevTools' }] },
+    { label: 'Claude Hooks', submenu: [
+      { label: 'Install Hooks', click: () => { try { require('./hooks').install(); } catch (e) { console.error(e.message); } } },
+      { label: 'Remove Hooks', click: () => { try { require('./hooks').uninstall(); } catch (e) { console.error(e.message); } } },
+    ] },
     { label: 'Alerts', submenu: [{ label: 'Play sound when Claude needs you', type: 'checkbox', checked: store.prefs.sound !== 'off', click: (i) => store.setPref('sound', i.checked ? 'on' : 'off') }] },
     { role: 'windowMenu' },
   ];
